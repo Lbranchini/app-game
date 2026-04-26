@@ -1,0 +1,37 @@
+id: anubis
+name: Anubis
+mythology: Egyptian
+archetype: damage_dealer
+base_hp: 95
+description: |
+  Guardian of the Egyptian underworld. Applies corrosive poisons that weigh
+  on the enemy's heart until the final judgment.
+
+skills:
+  - id: wraps
+    name: "Choking Wraps"
+    kind: instant
+    cost: { blood: 1 }
+    cooldown: 0
+    target: single_enemy
+    effects:
+      - { kind: damage, value: 10 }
+      - { kind: status, status: poison, duration: 2, value: 10 }
+
+  - id: sentence
+    name: "Sentence"
+    kind: instant
+    cost: { blood: 1, mind: 1 }
+    cooldown: 2
+    target: single_enemy
+    effects:
+      - { kind: damage, value: 20 }
+
+  - id: heart_burden
+    name: "Heart's Burden"
+    kind: instant
+    cost: { blood: 2, generic: 1 }
+    cooldown: 5
+    target: single_enemy
+    effects:
+      - { kind: damage, value: 30, piercing: true }

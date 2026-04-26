@@ -1,7 +1,7 @@
 [project]
 name = "agora-server"
-version = "0.0.1"
-description = "Engine de regras + API do jogo de batalhas mitológicas 3v3"
+version = "0.0.2"
+description = "Engine and API for the mythological 3v3 tactical battler"
 requires-python = ">=3.11"
 dependencies = [
     "pydantic>=2.6,<3",
@@ -18,7 +18,7 @@ dev = [
 ]
 
 [project.scripts]
-agora-sim = "agora.cli:main"
+agora-sim = "agora.interfaces.cli:main"
 
 [build-system]
 requires = ["setuptools>=68"]

@@ -1,0 +1,36 @@
+id: athena
+name: Athena
+mythology: Greek
+archetype: support
+base_hp: 95
+description: |
+  Goddess of wisdom and strategy. In battle, she bolsters allies with sound
+  counsel and raises divine defenses.
+
+skills:
+  - id: spear_of_wisdom
+    name: "Spear of Wisdom"
+    kind: instant
+    cost: { mind: 1 }
+    cooldown: 0
+    target: single_enemy
+    effects:
+      - { kind: damage, value: 15, damage_class: magical }
+
+  - id: counsel
+    name: "Counsel"
+    kind: instant
+    cost: { mind: 1, generic: 1 }
+    cooldown: 2
+    target: single_ally
+    effects:
+      - { kind: damage_reduction, value: 15, duration: 2 }
+
+  - id: aegis
+    name: "Aegis"
+    kind: instant
+    cost: { mind: 2, generic: 2 }
+    cooldown: 5
+    target: all_allies
+    effects:
+      - { kind: destructible_shield, value: 25 }

@@ -1,28 +1,33 @@
-"""Fixtures compartilhadas dos testes."""
+"""Shared test fixtures."""
 
 from __future__ import annotations
 
 import pytest
 
-from agora.data_loader import load_all_characters
-from agora.schemas import Personagem
+from agora.domain.character import Character
+from agora.infrastructure.yaml_repository import YamlCharacterRepository
 
 
 @pytest.fixture(scope="session")
-def all_characters() -> dict[str, Personagem]:
-    return load_all_characters()
+def repository() -> YamlCharacterRepository:
+    return YamlCharacterRepository()
+
+
+@pytest.fixture(scope="session")
+def all_characters(repository: YamlCharacterRepository) -> dict[str, Character]:
+    return repository.all()
 
 
 @pytest.fixture
-def aquiles(all_characters: dict[str, Personagem]) -> Personagem:
-    return all_characters["aquiles"]
+def achilles(all_characters: dict[str, Character]) -> Character:
+    return all_characters["achilles"]
 
 
 @pytest.fixture
-def atena(all_characters: dict[str, Personagem]) -> Personagem:
-    return all_characters["atena"]
+def athena(all_characters: dict[str, Character]) -> Character:
+    return all_characters["athena"]
 
 
 @pytest.fixture
-def anubis(all_characters: dict[str, Personagem]) -> Personagem:
+def anubis(all_characters: dict[str, Character]) -> Character:
     return all_characters["anubis"]

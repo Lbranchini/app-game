@@ -1,0 +1,39 @@
+id: achilles
+name: Achilles
+mythology: Greek
+archetype: damage_dealer
+base_hp: 110
+description: |
+  The greatest Greek warrior of the Trojan War. Nearly invincible in melee
+  combat, but his heel is his only vulnerable spot.
+
+skills:
+  - id: spear
+    name: "Deadly Spear"
+    kind: instant
+    cost: { vigor: 1 }
+    cooldown: 0
+    target: single_enemy
+    effects:
+      - { kind: damage, value: 20, damage_class: physical }
+
+  - id: charge
+    name: "Myrmidon Charge"
+    kind: instant
+    cost: { vigor: 2 }
+    cooldown: 2
+    target: single_enemy
+    effects:
+      - { kind: damage, value: 35, damage_class: physical }
+      - { kind: status, status: bleed, duration: 2, value: 10 }
+
+  - id: wrath
+    name: "Wrath of Peleus"
+    kind: ongoing
+    cost: { vigor: 2, generic: 1 }
+    cooldown: 4
+    duration: 3
+    target: self
+    effects:
+      - { kind: damage_buff, value: 15, duration: 3 }
+      - { kind: damage_reduction, value: 10, duration: 3 }
