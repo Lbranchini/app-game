@@ -9,14 +9,21 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass, field
+from datetime import datetime
 
 from fastapi import WebSocket
 
 from agora.application.engine import MatchEngine
-from agora.application.ports import ArenaRepository, CharacterRepository, RandomSource
+from agora.application.ports import (
+    ArenaRepository,
+    CharacterRepository,
+    MatchHistoryRepository,
+    RandomSource,
+)
 from agora.application.use_cases.draft import DraftService
 from agora.domain.draft import DraftState
 from agora.domain.match import Action, MatchState
+from agora.domain.match_record import MatchRecord
 from agora.infrastructure.in_memory_draft_repository import InMemoryDraftRepository
 from agora.infrastructure.seeded_random import SeededRandom
 
@@ -25,8 +32,15 @@ from agora.infrastructure.seeded_random import SeededRandom
 class _MatchSession:
     state: MatchState
     engine: MatchEngine
+    seed: int
+    side_a_player_id: str
+    side_b_player_id: str
+    team_a: list[str]
+    team_b: list[str]
+    started_at: datetime
     sockets: list[WebSocket] = field(default_factory=list)
     lock: asyncio.Lock = field(default_factory=asyncio.Lock)
+    persisted: bool = False
 
 
 class MatchRuntime:
@@ -40,10 +54,12 @@ class MatchRuntime:
         self,
         characters: CharacterRepository,
         arenas: ArenaRepository,
+        history: MatchHistoryRepository | None = None,
     ) -> None:
         self._characters = characters
         self._arenas = arenas
         self._sessions: dict[str, _MatchSession] = {}
+        self._history = history
         self._draft_service = DraftService(
             repository=InMemoryDraftRepository(),
             characters=characters,
@@ -72,8 +88,10 @@ class MatchRuntime:
     ) -> MatchState:
         from agora.domain.enums import Side
 
-        team_a = [self._characters.get(cid) for cid in draft.picks[Side.A]]
-        team_b = [self._characters.get(cid) for cid in draft.picks[Side.B]]
+        team_a_ids = list(draft.picks[Side.A])
+        team_b_ids = list(draft.picks[Side.B])
+        team_a = [self._characters.get(cid) for cid in team_a_ids]
+        team_b = [self._characters.get(cid) for cid in team_b_ids]
         arena = self._arenas.get(draft.arena_id)
         engine = MatchEngine(
             characters=self._characters,
@@ -89,7 +107,16 @@ class MatchRuntime:
             seed=seed,
             arena=arena,
         )
-        self._sessions[match_id] = _MatchSession(state=state, engine=engine)
+        self._sessions[match_id] = _MatchSession(
+            state=state,
+            engine=engine,
+            seed=seed,
+            side_a_player_id=draft.side_a_player_id,
+            side_b_player_id=draft.side_b_player_id,
+            team_a=team_a_ids,
+            team_b=team_b_ids,
+            started_at=datetime.utcnow(),
+        )
         return state
 
     def get(self, match_id: str) -> MatchState:
@@ -119,7 +146,28 @@ class MatchRuntime:
         async with session.lock:
             new_state, events = session.engine.resolve_turn(session.state, actions)
             session.state = new_state
+            self._maybe_persist(match_id, session)
         return new_state, [e.model_dump() for e in events]
+
+    def _maybe_persist(self, match_id: str, session: _MatchSession) -> None:
+        """Save a `MatchRecord` exactly once when the match flips to finished."""
+        if not session.state.finished or session.persisted or self._history is None:
+            return
+        record = MatchRecord(
+            id=match_id,
+            arena_id=session.state.arena_id,
+            side_a_player_id=session.side_a_player_id,
+            side_b_player_id=session.side_b_player_id,
+            team_a=session.team_a,
+            team_b=session.team_b,
+            winner=session.state.winner.value if session.state.winner else None,
+            turns=session.state.turn,
+            seed=session.seed,
+            started_at=session.started_at,
+            ended_at=datetime.utcnow(),
+        )
+        self._history.save(record)
+        session.persisted = True
 
     def sockets_for(self, match_id: str) -> list[WebSocket]:
         session = self._sessions.get(match_id)

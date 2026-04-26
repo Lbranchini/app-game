@@ -4,7 +4,15 @@ from __future__ import annotations
 
 from functools import lru_cache
 
-from agora.application.ports import ArenaRepository, CharacterRepository, PlayerRepository
+from agora.application.ports import (
+    ArenaRepository,
+    CharacterRepository,
+    MatchHistoryRepository,
+    PlayerRepository,
+)
+from agora.infrastructure.sqlalchemy_match_history_repository import (
+    SqlAlchemyMatchHistoryRepository,
+)
 from agora.infrastructure.sqlalchemy_player_repository import SqlAlchemyPlayerRepository
 from agora.infrastructure.yaml_arena_repository import YamlArenaRepository
 from agora.infrastructure.yaml_repository import YamlCharacterRepository
@@ -24,3 +32,8 @@ def get_arena_repository() -> ArenaRepository:
 @lru_cache(maxsize=1)
 def get_player_repository() -> PlayerRepository:
     return SqlAlchemyPlayerRepository(database_url=get_settings().database_url)
+
+
+@lru_cache(maxsize=1)
+def get_match_history_repository() -> MatchHistoryRepository:
+    return SqlAlchemyMatchHistoryRepository(database_url=get_settings().database_url)

@@ -9,6 +9,7 @@ from typing import Protocol
 
 from agora.domain.arena import Arena
 from agora.domain.character import Character
+from agora.domain.match_record import MatchRecord
 from agora.domain.player import Player
 
 
@@ -38,6 +39,16 @@ class PlayerRepository(Protocol):
     ) -> Player: ...
 
     def get(self, player_id: str) -> Player: ...
+
+
+class MatchHistoryRepository(Protocol):
+    """Persistence port for finished matches."""
+
+    def save(self, record: MatchRecord) -> None: ...
+
+    def list_recent(
+        self, *, player_id: str | None = None, limit: int = 20
+    ) -> list[MatchRecord]: ...
 
 
 class RandomSource(Protocol):

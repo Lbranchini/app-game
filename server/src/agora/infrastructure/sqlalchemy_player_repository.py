@@ -31,6 +31,7 @@ from sqlalchemy.orm import (
     mapped_column,
     sessionmaker,
 )
+from sqlalchemy.pool import StaticPool
 
 from agora.domain.player import DEFAULT_STARTERS, Player
 
@@ -71,7 +72,15 @@ def _to_domain(row: _PlayerRow) -> Player:
 
 class SqlAlchemyPlayerRepository:
     def __init__(self, database_url: str = "sqlite:///./agora.db") -> None:
-        self._engine: Engine = create_engine(database_url, future=True)
+        # See note in SqlAlchemyMatchHistoryRepository: in-memory SQLite needs
+        # StaticPool so all sessions hit the same connection.
+        kwargs: dict[str, object] = {"future": True}
+        if ":memory:" in database_url or database_url == "sqlite://":
+            kwargs.update(
+                connect_args={"check_same_thread": False},
+                poolclass=StaticPool,
+            )
+        self._engine: Engine = create_engine(database_url, **kwargs)
         _Base.metadata.create_all(self._engine)
         self._session_factory = sessionmaker(
             bind=self._engine, expire_on_commit=False, future=True

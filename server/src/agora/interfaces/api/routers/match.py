@@ -23,11 +23,20 @@ from fastapi import (
 )
 from pydantic import BaseModel
 
-from agora.application.ports import ArenaRepository, CharacterRepository
+from agora.application.ports import (
+    ArenaRepository,
+    CharacterRepository,
+    MatchHistoryRepository,
+)
 from agora.domain.draft import DraftPhase, DraftState
 from agora.domain.enums import Side
 from agora.domain.match import Action, MatchState
-from agora.interfaces.api.dependencies import get_arena_repository, get_character_repository
+from agora.domain.match_record import MatchRecord
+from agora.interfaces.api.dependencies import (
+    get_arena_repository,
+    get_character_repository,
+    get_match_history_repository,
+)
 from agora.interfaces.api.match_runtime import MatchRuntime
 
 router = APIRouter(prefix="/match", tags=["match"])
@@ -38,10 +47,11 @@ _runtime: MatchRuntime | None = None
 def _get_runtime(
     characters: Annotated[CharacterRepository, Depends(get_character_repository)],
     arenas: Annotated[ArenaRepository, Depends(get_arena_repository)],
+    history: Annotated[MatchHistoryRepository, Depends(get_match_history_repository)],
 ) -> MatchRuntime:
     global _runtime
     if _runtime is None:
-        _runtime = MatchRuntime(characters=characters, arenas=arenas)
+        _runtime = MatchRuntime(characters=characters, arenas=arenas, history=history)
     return _runtime
 
 
@@ -84,6 +94,16 @@ def dev_start(
     return StartedMatch(match_id=match_id, state=state)
 
 
+@router.get("/history", response_model=list[MatchRecord])
+def list_history(
+    history: Annotated[MatchHistoryRepository, Depends(get_match_history_repository)],
+    player_id: str | None = None,
+    limit: int = 20,
+) -> list[MatchRecord]:
+    limit = max(1, min(limit, 100))
+    return history.list_recent(player_id=player_id, limit=limit)
+
+
 @router.get("/{match_id}", response_model=MatchState)
 def get_match(
     match_id: str,
@@ -101,8 +121,9 @@ async def match_ws(
     match_id: str,
     characters: Annotated[CharacterRepository, Depends(get_character_repository)],
     arenas: Annotated[ArenaRepository, Depends(get_arena_repository)],
+    history: Annotated[MatchHistoryRepository, Depends(get_match_history_repository)],
 ) -> None:
-    runtime = _get_runtime(characters, arenas)
+    runtime = _get_runtime(characters, arenas, history)
 
     try:
         runtime.get(match_id)  # Validate existence before accepting.

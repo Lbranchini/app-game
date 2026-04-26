@@ -13,11 +13,19 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-from agora.application.ports import ArenaRepository, CharacterRepository
+from agora.application.ports import (
+    ArenaRepository,
+    CharacterRepository,
+    MatchHistoryRepository,
+)
 from agora.application.use_cases.draft import DraftError
 from agora.domain.draft import DraftPhase, DraftState
 from agora.domain.enums import Side
-from agora.interfaces.api.dependencies import get_arena_repository, get_character_repository
+from agora.interfaces.api.dependencies import (
+    get_arena_repository,
+    get_character_repository,
+    get_match_history_repository,
+)
 from agora.interfaces.api.match_runtime import MatchRuntime
 from agora.interfaces.api.routers import match as match_router
 
@@ -27,8 +35,9 @@ router = APIRouter(prefix="/draft", tags=["draft"])
 def _runtime(
     characters: Annotated[CharacterRepository, Depends(get_character_repository)],
     arenas: Annotated[ArenaRepository, Depends(get_arena_repository)],
+    history: Annotated[MatchHistoryRepository, Depends(get_match_history_repository)],
 ) -> MatchRuntime:
-    return match_router._get_runtime(characters, arenas)
+    return match_router._get_runtime(characters, arenas, history)
 
 
 # --------------------------------------------------------------------------- #
