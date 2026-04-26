@@ -1,6 +1,6 @@
-# Server — Engine + API (Python)
+# Server — Backend (Python, Clean Architecture)
 
-Engine determinística de regras + API (FastAPI virá em fase posterior).
+Deterministic engine of rules + (planned) FastAPI app. Web frontend will live under `web/` once scaffolded.
 
 ## Setup
 
@@ -9,51 +9,60 @@ cd server
 pip install -e ".[dev]"
 ```
 
-## Rodar testes
+## Quality gate
 
 ```bash
-pytest
+pytest                       # unit tests
+ruff check src tests         # linter
+mypy src                     # strict type check
 ```
 
-## Rodar simulação bot vs bot
+Or just run the slash command `/test` in Claude Code.
+
+## Run the bot-vs-bot simulator
 
 ```bash
-agora-sim                  # 1 partida com seed 42
-agora-sim --seed 7         # seed específica
-agora-sim --runs 100       # 100 partidas, mostra estatísticas
-agora-sim --quiet          # só o resultado
+agora-sim                    # 1 match with seed 42
+agora-sim --seed 7           # specific seed (deterministic)
+agora-sim --runs 100         # 100 matches, prints win rates
+agora-sim --quiet            # final result only
 ```
 
-## Estrutura
+## Layered structure (Clean Architecture)
 
 ```
 src/agora/
-├── schemas.py          # Pydantic v2: Personagem, Habilidade, MatchState, Action, Event
-├── data_loader.py      # Carrega YAMLs de data/characters/
-├── game/
-│   ├── engine.py       # resolve_turn, start_match
-│   └── rng.py          # SeededRng (replay determinístico)
-└── cli.py              # bot vs bot
-
-tests/
-├── conftest.py         # fixtures de personagens
-├── test_data_loader.py
-├── test_engine_basico.py
-└── test_status_effects.py
+├── domain/                  Pure entities and value objects (no I/O)
+│   ├── enums.py             Essence, Archetype, SkillKind, TargetKind, EffectKind
+│   ├── character.py         Character, Skill, Effect (immutable definitions)
+│   ├── match.py             MatchState, PlayerState, CharacterState, Action
+│   └── events.py            Event log entries
+├── application/             Orchestration layer (depends on domain only)
+│   ├── ports.py             CharacterRepository, RandomSource (Protocols)
+│   └── use_cases/
+│       ├── start_match.py
+│       └── resolve_turn.py
+├── infrastructure/          Adapter implementations
+│   ├── yaml_repository.py   loads YAMLs from data/characters/
+│   └── seeded_random.py     deterministic RNG
+└── interfaces/              Entry points
+    └── cli.py               bot-vs-bot simulator (FastAPI added later)
 ```
 
-## Status atual (slice vertical)
+**Dependency rule:** outer layers may import inner ones; never the reverse. If you need infrastructure inside a use case, define a Protocol in `application/ports.py` and inject it.
 
-- ✅ 3 personagens jogáveis: Aquiles, Atena, Anúbis (cobrem damage físico, suporte, DoT)
-- ✅ 15 testes passando
-- ✅ Engine: dano, cura, cooldowns, custos, alternância de jogador, geração de essência, win condition
-- ✅ Status: veneno (DoT), redução de dano, escudo destrutível, buff de dano, invulnerável, perfurante
-- ✅ CLI bot vs bot funcional
+## Current status (vertical slice)
 
-## Próximos (fora deste slice)
+- 3 playable characters: Achilles, Athena, Anubis (cover physical damage, support, DoT)
+- 15 tests passing
+- Engine: damage, healing, cooldowns, costs, side alternation, seeded RNG, win condition
+- Statuses implemented: poison (DoT), damage_reduction, destructible_shield, damage_buff, invulnerable, piercing
+- CLI bot-vs-bot runs full matches end-to-end
 
-- 13 personagens restantes do roster MVP
-- Status faltantes: stun, silenciado, drenado, sangramento (versão proporcional ao dano), regeneração, marcado, vulnerável, refletivo, furtivo
-- Mais tipos de efeito: drena_essencia (tem implementação parcial), copia, reflect, counter
-- API FastAPI por cima da engine
-- Persistência (PostgreSQL + Redis)
+## Next steps (out of this slice)
+
+- 13 remaining MVP characters
+- Statuses to implement: stun, silence, disarm, drained, bleed (proportional version), regen, marked, vulnerable, reflective, copy
+- More effect kinds: copy, reflect, counter
+- FastAPI app on top of the engine
+- Persistence (PostgreSQL + Redis)

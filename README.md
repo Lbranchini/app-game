@@ -1,42 +1,65 @@
-# Ágora dos Mitos (nome provisório)
+# Agora of Myths (working title)
 
-Jogo mobile (Android + iOS) de batalhas estratégicas por turnos 3v3, com **personagens clássicos da história e das mitologias mundiais** (grega, nórdica, egípcia, japonesa, asteca, africana, mesopotâmica, britânica e mais).
+Web-first turn-based 3v3 tactical battler with characters drawn from world mythology and history (Greek, Norse, Egyptian, Japanese, Aztec, African, Mesopotamian, British, and more).
 
-## Pitch em uma frase
+## One-line pitch
 
-> Xadrez com superpoderes: monte uma equipe de 3 lendas, gerencie energia e cooldowns, e duele contra outros jogadores em partidas de 8–12 minutos.
+> Chess with superpowers: build a team of three legends, manage energy and cooldowns, and duel other players in 8–12 minute matches.
 
-## Decisões fechadas
+## Locked decisions
 
-| Item | Decisão |
+| Item | Decision |
 |---|---|
-| Cliente | **Godot 4** (2D, exporta Android + iOS, grátis) |
-| Backend | **Python 3.12 + FastAPI** |
-| Banco | PostgreSQL 16 + Redis |
-| Direção de arte | **Cartoon 2D** (paleta vibrante, contornos claros, expressivo) |
-| Roster MVP | **16 personagens** (10 mitologias diferentes) |
-| Modelo | Free-to-play, monetização por cosméticos e expansões temáticas (sem pay-to-win) |
-| Escopo MVP | Batalhas + sistema de missões para desbloqueio de personagens |
+| First platform | **Web** (browser). Native mobile (Android + iOS) is a later phase. |
+| Frontend | **React 18 + TypeScript + Vite + Tailwind CSS** |
+| Backend | **Python 3.11+ with FastAPI**, structured as **Clean Architecture** (`domain` / `application` / `infrastructure` / `interfaces`) |
+| Persistence | PostgreSQL 16 + Redis |
+| Art direction | **2D cartoon** (vibrant palette, clean outlines, expressive) |
+| MVP roster | **16 characters** spanning 10 mythologies |
+| Business model | Free-to-play, monetized through cosmetics and themed expansions (no pay-to-win) |
+| MVP scope | Battles + a mission-based progression system to unlock characters |
 
-## Sobre direitos autorais
+## Copyright posture
 
-**Mecânicas de jogo** (turnos, custos de essência, cooldowns, formação 3v3, status effects) são padrão do gênero turn-based tático e não são protegidas por copyright — podem ser livremente usadas.
+**Game mechanics** (turns, essence costs, cooldowns, 3v3 layout, status effects) are standard tactical-RPG vocabulary and are not protected by copyright — they are reused and referenced freely.
 
-**Personagens, nomes e habilidades** são desenhados do zero usando figuras de **domínio público** (mitologia e história antiga). Nenhum kit é cópia de personagem identificável de outra obra protegida — todos os 16 são desenhos originais que ocupam arquétipos clássicos do gênero.
+**Characters, names, and skills** are designed from scratch using **public-domain figures** (mythology and ancient history). No kit copies any identifiable character from another protected work — every one of the 16 is an original design occupying a classic genre archetype.
 
-## Estrutura da documentação
+## Documentation
 
-| Arquivo | Conteúdo |
+| File | Content |
 |---|---|
-| [`docs/01-visao-geral.md`](docs/01-visao-geral.md) | Visão de produto, público-alvo, diferencial |
-| [`docs/02-mecanicas-de-jogo.md`](docs/02-mecanicas-de-jogo.md) | Sistema de turnos, essências, tipos de habilidade, status |
-| [`docs/03-arquitetura-tecnica.md`](docs/03-arquitetura-tecnica.md) | Godot + FastAPI + Postgres + Redis |
-| [`docs/04-roadmap.md`](docs/04-roadmap.md) | Fases de MVP até v1.0 |
-| [`docs/05-personagens-iniciais.md`](docs/05-personagens-iniciais.md) | Roster de 16 personagens com kits completos |
-| [`docs/06-balanceamento.md`](docs/06-balanceamento.md) | Filosofia de balanceamento, arquétipos de equipe |
-| [`docs/07-glossario.md`](docs/07-glossario.md) | Termos técnicos do jogo |
-| [`docs/09-missoes-progressao.md`](docs/09-missoes-progressao.md) | Sistema de missões e desbloqueio de personagens |
+| [`docs/01-overview.md`](docs/01-overview.md) | Product vision, audience, monetization |
+| [`docs/02-mechanics.md`](docs/02-mechanics.md) | Turn system, essences, skill kinds, statuses |
+| [`docs/03-architecture.md`](docs/03-architecture.md) | React + FastAPI + Postgres + Redis (Clean Architecture) |
+| [`docs/04-roadmap.md`](docs/04-roadmap.md) | Phases from MVP to v1.0 |
+| [`docs/05-characters.md`](docs/05-characters.md) | 16-character roster with full kits |
+| [`docs/06-balance.md`](docs/06-balance.md) | Balance philosophy, team archetypes |
+| [`docs/07-glossary.md`](docs/07-glossary.md) | Game terminology |
+| [`docs/09-missions.md`](docs/09-missions.md) | Missions and character unlocks |
+
+## Repository layout
+
+```
+.
+├── .claude/             Claude Code config (slash commands, agents)
+├── data/characters/     YAML data, grouped by mythology
+├── docs/                Game design + architecture docs
+├── server/              Python backend (Clean Architecture)
+└── web/                 React frontend (planned, not scaffolded yet)
+```
+
+## Quick start (backend)
+
+```bash
+cd server
+pip install -e ".[dev]"
+pytest                      # 15 tests
+agora-sim --runs 100 --quiet
+```
 
 ## Status
 
-📋 **Fase atual:** Pré-produção (planejamento). Próximo passo: aprovar este planejamento e escrever os 16 YAMLs de personagens antes de começar a Fase 1 (engine de regras em Python).
+Phase 0 (planning) complete. Phase 1 (engine of rules) has a working **vertical slice**: 3 characters (Achilles / Athena / Anubis) covering damage, support, and DoT. Engine handles damage, healing, cooldowns, costs, alternating turns, seeded RNG, win condition, plus statuses (poison, damage reduction, destructible shield, damage buff, invulnerable, piercing). Bot-vs-bot CLI runs full matches end-to-end.
+
+Next steps: complete the remaining 13 characters, implement missing statuses (stun, silence, drain, etc.), expose the engine via FastAPI, scaffold the React web client.

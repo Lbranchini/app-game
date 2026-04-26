@@ -1,118 +1,127 @@
 # 04 — Roadmap
 
-> Estimativas presumem 1 dev em tempo parcial. Multiplique/divida conforme o time real.
+> Estimates assume one part-time developer. Scale up or down for the actual team.
 
 ---
 
-## Fase 0 — Pré-produção (2–3 semanas)
+## Phase 0 — Pre-production (2–3 weeks)
 
-**Objetivo:** validar o conceito antes de escrever código.
+**Goal:** validate the concept before writing application code.
 
-- [ ] Aprovar este planejamento.
-- [ ] Decisões em aberto remanescentes (hosting, i18n).
-- [ ] Mood board cartoon: paleta, peso de contorno, estilo de animação (referências: Hades 2D, Slay the Spire, Cult of the Lamb).
-- [ ] Prototipar **em papel** uma partida completa: imprimir 6 cards de personagem com habilidades e jogar contra você mesmo. Identificar furos de regra antes de codar.
-- [ ] Setup do repositório: CI básico, linter, formatter, regras de PR.
+- [ ] Sign off on this planning bundle.
+- [ ] Resolve remaining architecture decisions (hosting, i18n).
+- [ ] Cartoon mood board: palette, outline weight, animation style (references: Hades 2D, Slay the Spire, Cult of the Lamb).
+- [ ] Paper-prototype a full match: print 6 character cards with skills and play yourself. Find rule holes before coding.
+- [ ] Repository setup: CI baseline, linter, formatter, PR rules.
 
-**Entregável:** documento único "Game Design Document v1" (este `/docs` consolidado) + protótipo de papel jogável.
-
----
-
-## Fase 1 — Engine de regras (4–6 semanas)
-
-**Objetivo:** servidor Python autoritativo que resolve partidas via API, sem UI.
-
-- [ ] Setup do projeto FastAPI + uv + ruff + mypy + pytest.
-- [ ] Schema YAML dos 16 personagens (validado por Pydantic v2).
-- [ ] Loader: carrega `data/characters/*.yaml` no boot.
-- [ ] Engine de turnos (módulo Python puro): estado da partida, fila de ações, resolução, cooldowns, status.
-- [ ] Suite de testes unitários cobrindo:
-  - Cada tipo de habilidade (instantânea, ação, controle).
-  - Cada status effect.
-  - Casos de prioridade (esquiva antes de ataque, reflect antes de heal, etc.).
-- [ ] CLI para simular partida 3v3 entre dois bots determinísticos.
-
-**Entregável:** `pytest` verde com ≥ 80% coverage. CLI roda partida ponta-a-ponta em < 1s.
+**Deliverable:** consolidated GDD (this `/docs` set) + a playable paper prototype.
 
 ---
 
-## Fase 2 — Cliente jogável local (4–6 semanas)
+## Phase 1 — Engine of rules (4–6 weeks)
 
-**Objetivo:** UI que joga uma partida contra IA simples.
+**Goal:** authoritative Python engine that resolves matches via API, no UI.
 
-- [ ] Tela principal (logo + botão "Jogar").
-- [ ] Tela de seleção de equipe (3 personagens dos 16 do MVP).
-- [ ] Tela de batalha: HUD de essências, painel de personagens, painel de habilidades, fila, botão "PRONTO".
-- [ ] Animações básicas (placeholder ok): ataque, dano, cura, status.
-- [ ] IA "burra" (escolhe ação aleatória válida).
-- [ ] Build APK e IPA testados em dispositivo real.
+- [x] FastAPI + uv + ruff + mypy + pytest project scaffold (in `server/`).
+- [x] YAML schema + Pydantic v2 validation.
+- [x] Repository loader.
+- [x] Engine of turns (pure module): match state, action queue, resolution, cooldowns, statuses.
+- [x] CLI bot-vs-bot simulator.
+- [ ] All 16 character YAMLs (3 done: Achilles / Athena / Anubis).
+- [ ] All status effects (poison/DR/shield/buff/invuln/piercing done; stun/silence/disarm/drain/bleed/regen/marked/vulnerable/reflect/copy pending).
+- [ ] Test coverage ≥ 80%.
 
-**Entregável:** APK instalável que joga 1 partida 3v3 vs IA do início ao fim.
-
----
-
-## Fase 3 — Multiplayer + conta (4–6 semanas)
-
-**Objetivo:** PvP funcional.
-
-- [ ] Auth (Google + Apple Sign-in).
-- [ ] Matchmaking (fila simples por Elo).
-- [ ] WebSocket cliente↔servidor.
-- [ ] Sincronização de estado autoritativa.
-- [ ] Tratamento de desconexão (timeout 60s → derrota).
-- [ ] Telemetria básica (tempo de partida, ações por turno, taxa de desistência).
-- [ ] **Sistema de missões** (ver `docs/09-missoes-progressao.md`): contadores de progresso por jogador, MissionService pós-partida, UI de tela "Personagens" com progress bars.
-
-**Entregável:** beta fechado com 20 amigos jogando partidas reais.
+**Deliverable:** `pytest` green with ≥ 80% coverage. CLI runs an end-to-end match in < 1s.
 
 ---
 
-## Fase 4 — Conteúdo + Polimento (6–8 semanas)
+## Phase 2 — Web client, local-only (4–6 weeks)
 
-- [ ] Roster de 16 → 20 personagens (4 novos: cobrir mitologias menos representadas).
-- [ ] Balanceamento: 3 rodadas de playtest, ajustes via PR.
-- [ ] Animações reais (artista contratado ou asset pack).
-- [ ] Áudio: música ambiente + SFX por habilidade.
-- [ ] Efeitos visuais (partículas).
-- [ ] Tela de progressão/perfil.
-- [ ] Localização: PT-BR + EN.
+**Goal:** browser UI playing one match against a local AI through a single FastAPI process.
 
-**Entregável:** v0.9, qualidade de soft-launch.
+- [ ] React + TypeScript + Vite + Tailwind scaffold in `web/`.
+- [ ] Home screen, team-select, battle, character collection.
+- [ ] Battle UI: essence HUD, character panel, skill panel, action queue, READY button.
+- [ ] Placeholder animations: attack, damage, heal, status pulse.
+- [ ] Local AI: random valid action.
+
+**Deliverable:** local dev environment where the same engine drives the browser UI in a complete 3v3 match.
 
 ---
 
-## Fase 5 — Lançamento (4 semanas)
+## Phase 3 — Multiplayer + accounts (4–6 weeks)
 
-- [ ] Stores: Google Play (taxa 25 USD), App Store (99 USD/ano).
-- [ ] Política de privacidade + termos.
+**Goal:** functional PvP.
+
+- [ ] Auth (Google + Apple sign-in via Firebase).
+- [ ] Matchmaking (Elo-based queue).
+- [ ] WebSocket client ↔ server.
+- [ ] Authoritative state sync.
+- [ ] Disconnect handling (60s timeout → loss).
+- [ ] Basic telemetry (match length, actions per turn, drop rate).
+- [ ] **Mission system** (see `docs/09-missions.md`): per-player progress counters, MissionService after each match, "Characters" UI with progress bars.
+
+**Deliverable:** closed beta with ~20 friends running real matches.
+
+---
+
+## Phase 4 — Content + polish (6–8 weeks)
+
+- [ ] Roster from 16 → 20 characters (4 new, covering under-represented mythologies).
+- [ ] Balance: 3 playtest rounds, adjustments via PR.
+- [ ] Real animations (artist or asset pack).
+- [ ] Audio: ambient music + per-skill SFX.
+- [ ] VFX (particles).
+- [ ] Profile / progression screen.
+- [ ] Localization: PT-BR + EN.
+
+**Deliverable:** v0.9, soft-launch quality.
+
+---
+
+## Phase 5 — Web launch (4 weeks)
+
+- [ ] Public web hosting (TLS, custom domain).
+- [ ] Privacy policy + terms.
 - [ ] LGPD/GDPR compliance.
-- [ ] Página de lançamento (landing page simples).
-- [ ] Plano de marketing inicial (Reddit, TikTok, Discord de mitologia/games táticos).
+- [ ] Landing page.
+- [ ] Initial marketing plan (Reddit, TikTok, mythology/tactics Discords).
 
-**Entregável:** v1.0 nas lojas.
-
----
-
-## Pós-lançamento (contínuo)
-
-- Patches de balanceamento mensais.
-- 1 personagem novo a cada 2 semanas.
-- Eventos sazonais (Halloween → mitologia celta; Carnaval → orixás; etc.).
-- Battle Pass trimestral.
+**Deliverable:** v1.0 live on the web.
 
 ---
 
-## Não-objetivos do MVP (cortes deliberados)
+## Phase 6 — Native mobile (post-v1.0)
 
-Tudo abaixo fica para **depois** da v1.0. Não tentar fazer no MVP:
+The web architecture (server-authoritative, REST + WS) is mobile-ready. Two options:
 
-- Modo guilda/clã.
-- Chat in-game.
+- **React Native** (or Capacitor) — reuse most of the React/TS code; ship Android + iOS from one codebase.
+- **A separate native client** (e.g. Godot or SwiftUI/Jetpack Compose) — heavier investment, better feel.
+
+Decision deferred to after web traction.
+
+---
+
+## Continuous post-launch
+
+- Monthly balance patches.
+- One new character every two weeks.
+- Seasonal events (Halloween → Celtic; Carnival → Orixás; ...).
+- Quarterly Battle Pass.
+
+---
+
+## Explicit non-goals for the MVP
+
+Cut deliberately. Do **not** ship before v1.0:
+
+- Guild / clan systems.
+- In-game chat.
 - Replays.
-- Espectador.
-- Cosméticos.
-- Web client.
-- Modo PvE / campanha.
+- Spectator mode.
+- Cosmetics catalog.
+- PvE / campaign.
 - Voice acting.
+- Native mobile clients.
 
-Lembrete: **escopo curto entrega**. Escopo grande não entrega.
+**Rule of thumb:** small scope ships. Large scope doesn't.
