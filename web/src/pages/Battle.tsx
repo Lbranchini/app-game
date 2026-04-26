@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useParams } from "react-router-dom";
 
 interface CharacterState {
   id: string;
@@ -36,13 +37,31 @@ const DEMO_TEAM_A = ["achilles", "athena", "anubis"];
 const DEMO_TEAM_B = ["thor", "isis", "loki"];
 
 export function BattlePage() {
-  const [matchId, setMatchId] = useState<string | null>(null);
+  const params = useParams<{ matchId?: string }>();
+  const [matchId, setMatchId] = useState<string | null>(params.matchId ?? null);
   const [state, setState] = useState<MatchState | null>(null);
   const [events, setEvents] = useState<MatchEvent[]>([]);
   const [error, setError] = useState<string | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
 
   useEffect(() => () => wsRef.current?.close(), []);
+
+  // If we landed here from the draft with a match id in the URL, fetch state
+  // and connect immediately.
+  useEffect(() => {
+    if (!params.matchId) return;
+    (async () => {
+      try {
+        const response = await fetch(`/api/match/${params.matchId}`);
+        if (!response.ok) throw new Error(await response.text());
+        setState(await response.json());
+        connect(params.matchId!);
+      } catch (e) {
+        setError(String(e));
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [params.matchId]);
 
   const startMatch = async () => {
     setError(null);

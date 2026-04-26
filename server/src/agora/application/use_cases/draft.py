@@ -121,6 +121,9 @@ class DraftService:
         self._repo.save(draft)
         return draft
 
+    def get(self, draft_id: str) -> DraftState:
+        return self._repo.get(draft_id)
+
     # --------------------------------------------------------------------- #
     # Internals                                                             #
     # --------------------------------------------------------------------- #

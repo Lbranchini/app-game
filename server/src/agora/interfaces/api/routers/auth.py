@@ -18,6 +18,8 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import JSONResponse, RedirectResponse
 from pydantic import BaseModel
 
+from agora.application.ports import PlayerRepository
+from agora.interfaces.api.dependencies import get_player_repository
 from agora.interfaces.api.oauth import registry
 from agora.interfaces.api.security import (
     AuthenticatedUser,
@@ -57,6 +59,7 @@ async def google_login(
 async def google_callback(
     request: Request,
     settings: Annotated[Settings, Depends(get_settings)],
+    players: Annotated[PlayerRepository, Depends(get_player_repository)],
 ) -> JSONResponse:
     client = registry.google(settings)
     if client is None:
@@ -74,12 +77,17 @@ async def google_callback(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Google did not return an authenticated subject.",
         )
-    user = AuthenticatedUser(
-        sub=f"google:{userinfo['sub']}",
+    provider_subject = f"google:{userinfo['sub']}"
+    player = players.upsert_by_provider(
+        provider_subject=provider_subject,
         email=userinfo.get("email"),
         name=userinfo.get("name"),
     )
-    # NOTE: when persistence lands, upsert players row here keyed on `user.sub`.
+    user = AuthenticatedUser(
+        sub=provider_subject,
+        email=player.email,
+        name=player.name,
+    )
     return JSONResponse(TokenResponse(access_token=issue_access_token(user)).model_dump())
 
 

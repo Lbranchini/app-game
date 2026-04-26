@@ -33,6 +33,21 @@ class EffectHandler(ABC):
 class DamageHandler(EffectHandler):
     def apply(self, effect: Effect, ctx: EffectContext) -> None:
         target = ctx.target
+
+        # Reflective: a one-shot status. The next damage skill aimed at this
+        # character bounces back to its source. Inevitable damage cannot be
+        # reflected — the engine treats `effect.true` as inevitable for now.
+        reflect = next((s for s in target.statuses if s.name == "reflective"), None)
+        if reflect is not None and not effect.true:
+            target.statuses.remove(reflect)
+            ctx.events.append(
+                Event(
+                    kind="status_expired",
+                    details={"character": target.id, "status": "reflective", "consumed": True},
+                )
+            )
+            target = ctx.source  # bounce: the source takes its own hit
+
         if has_invulnerable(target) and not effect.true:
             return
 

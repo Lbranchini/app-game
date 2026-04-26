@@ -13,7 +13,7 @@ from agora.application.engine.arena_strategies import (
     apply_arena_match_start,
     apply_arena_turn_start,
 )
-from agora.application.engine.context import EffectContext
+from agora.application.engine.context import EffectContext, StatusTickContext
 from agora.application.engine.effect_handlers import EFFECT_HANDLERS
 from agora.application.engine.skill_validator import (
     PaymentPlan,
@@ -253,7 +253,15 @@ class MatchEngine:
             for status in character.statuses:
                 handler = STATUS_TICK_HANDLERS.get(status.name)
                 if handler is not None:
-                    handler.tick(status, character, events)
+                    handler.tick(
+                        StatusTickContext(
+                            status=status,
+                            character=character,
+                            player=player,
+                            rng=self._rng,
+                            events=events,
+                        )
+                    )
 
             if not character.alive:
                 events.append(

@@ -23,6 +23,14 @@ venv/
 .DS_Store
 Thumbs.db
 
-# Godot (futuro)
+# Local SQLite database (dev only)
+*.db
+*.db-journal
+
+# Environment variables
+.env
+.env.local
+
+# Native client (deferred)
 .godot/
 *.tmp

@@ -29,6 +29,9 @@ class Settings(BaseSettings):
     # CORS
     web_origin: str = "http://localhost:5173"
 
+    # Persistence
+    database_url: str = "sqlite:///./agora.db"
+
 
 _settings: Settings | None = None
 
