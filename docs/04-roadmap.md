@@ -69,7 +69,6 @@
 ## Fase 4 — Conteúdo + Polimento (6–8 semanas)
 
 - [ ] Roster de 16 → 20 personagens (4 novos: cobrir mitologias menos representadas).
-- [ ] Implementar narrativa em-jogo: cards de origem, frases pós-vitória, intro animada.
 - [ ] Balanceamento: 3 rodadas de playtest, ajustes via PR.
 - [ ] Animações reais (artista contratado ou asset pack).
 - [ ] Áudio: música ambiente + SFX por habilidade.

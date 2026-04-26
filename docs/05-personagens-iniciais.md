@@ -142,7 +142,7 @@ HP 95.
 HP 95.
 - **Vento Sussurrado** (básica): 12 dano + drena 1 essência aleatória do oponente. Custo 1 Mente. CD 0.
 - **Pluma Sagrada** (secundária): 20 dano AOE; cada alvo perde 1 essência aleatória. Custo 2 Mente. CD 3.
-- **Sopro do Mythos** (ultimate): no próximo turno, oponente não recebe nenhuma essência. Custo 2 Mente + 2 Genérica. CD 6.
+- **Sopro Sagrado** (ultimate): no próximo turno, oponente não recebe nenhuma essência. Custo 2 Mente + 2 Genérica. CD 6.
 
 ### 12. Anansi — Stun AOE
 HP 90.
