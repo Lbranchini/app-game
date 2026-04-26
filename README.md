@@ -16,7 +16,7 @@ Jogo mobile (Android + iOS) de batalhas estratégicas por turnos 3v3, com **pers
 | Direção de arte | **Cartoon 2D** (paleta vibrante, contornos claros, expressivo) |
 | Roster MVP | **16 personagens** (10 mitologias diferentes) |
 | Modelo | Free-to-play, monetização por cosméticos e expansões temáticas (sem pay-to-win) |
-| Escopo MVP | Apenas batalhas (sem modo carreira, sem narrativa, sem hub) |
+| Escopo MVP | Batalhas + sistema de missões para desbloqueio de personagens |
 
 ## Sobre direitos autorais
 
@@ -35,6 +35,7 @@ Jogo mobile (Android + iOS) de batalhas estratégicas por turnos 3v3, com **pers
 | [`docs/05-personagens-iniciais.md`](docs/05-personagens-iniciais.md) | Roster de 16 personagens com kits completos |
 | [`docs/06-balanceamento.md`](docs/06-balanceamento.md) | Filosofia de balanceamento, arquétipos de equipe |
 | [`docs/07-glossario.md`](docs/07-glossario.md) | Termos técnicos do jogo |
+| [`docs/09-missoes-progressao.md`](docs/09-missoes-progressao.md) | Sistema de missões e desbloqueio de personagens |
 
 ## Status
 

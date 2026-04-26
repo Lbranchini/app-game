@@ -61,6 +61,7 @@
 - [ ] Sincronização de estado autoritativa.
 - [ ] Tratamento de desconexão (timeout 60s → derrota).
 - [ ] Telemetria básica (tempo de partida, ações por turno, taxa de desistência).
+- [ ] **Sistema de missões** (ver `docs/09-missoes-progressao.md`): contadores de progresso por jogador, MissionService pós-partida, UI de tela "Personagens" com progress bars.
 
 **Entregável:** beta fechado com 20 amigos jogando partidas reais.
 
