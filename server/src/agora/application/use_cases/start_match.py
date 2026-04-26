@@ -1,13 +1,15 @@
-"""Use case: create the initial match state."""
+"""Use case: create the initial match state.
+
+Thin wrapper around `MatchEngine` for callers that only need a single call.
+"""
 
 from __future__ import annotations
 
+from agora.application.engine import MatchEngine
 from agora.application.ports import RandomSource
-from agora.application.use_cases.apply_arena import apply_match_start, mythology_index
 from agora.domain.arena import Arena
 from agora.domain.character import Character
-from agora.domain.enums import Essence, ROLLABLE_ESSENCES, Side
-from agora.domain.match import CharacterState, MatchState, PlayerState
+from agora.domain.match import MatchState
 
 
 def start_match(
@@ -20,50 +22,27 @@ def start_match(
     seed: int = 0,
     arena: Arena | None = None,
 ) -> MatchState:
-    """Create the initial state. Side A starts with 1 essence; B starts with 3.
-
-    If an arena is provided, its match-start modifiers are applied before
-    initial essences roll so any HP changes are reflected in the starting state.
-    """
-    if len(team_a) != 3 or len(team_b) != 3:
-        raise ValueError("Each team must have exactly 3 characters")
-
-    state = MatchState(
+    engine = MatchEngine(characters=_NullCharacterRepo(), rng=rng)
+    return engine.start_match(
         match_id=match_id,
-        arena_id=arena.id if arena else "neutral",
-        a=PlayerState(
-            id=player_a_id,
-            side=Side.A,
-            characters=[_new_character_state(c) for c in team_a],
-        ),
-        b=PlayerState(
-            id=player_b_id,
-            side=Side.B,
-            characters=[_new_character_state(c) for c in team_b],
-        ),
-        rng_seed=seed,
-    )
-
-    if arena is not None:
-        myth_index = mythology_index({c.id: c for c in team_a + team_b})
-        apply_match_start(state, arena, myth_index)
-
-    _generate_essences(state.a, 1, rng)
-    _generate_essences(state.b, 3, rng)
-    return state
-
-
-def _new_character_state(character: Character) -> CharacterState:
-    return CharacterState(
-        id=character.id,
-        name=character.name,
-        hp=character.base_hp,
-        hp_max=character.base_hp,
+        player_a_id=player_a_id,
+        team_a=team_a,
+        player_b_id=player_b_id,
+        team_b=team_b,
+        seed=seed,
+        arena=arena,
     )
 
 
-def _generate_essences(player: PlayerState, count: int, rng: RandomSource) -> None:
-    options = [e.value for e in ROLLABLE_ESSENCES]
-    for _ in range(count):
-        chosen = Essence(rng.choice(options))
-        player.essences[chosen] = player.essences.get(chosen, 0) + 1
+class _NullCharacterRepo:
+    """`start_match` only needs the rng + arena + the `Character` instances passed in.
+
+    A no-op repository keeps the engine constructor uniform without forcing
+    callers to provide one when they already have the characters in hand.
+    """
+
+    def get(self, character_id: str) -> Character:  # pragma: no cover
+        raise KeyError(character_id)
+
+    def all(self) -> dict[str, Character]:  # pragma: no cover
+        return {}

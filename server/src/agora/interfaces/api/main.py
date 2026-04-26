@@ -4,8 +4,9 @@ from __future__ import annotations
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.sessions import SessionMiddleware
 
-from agora.interfaces.api.routers import arenas, auth, characters, health
+from agora.interfaces.api.routers import arenas, auth, characters, health, match
 from agora.interfaces.api.settings import get_settings
 
 
@@ -13,9 +14,11 @@ def create_app() -> FastAPI:
     settings = get_settings()
     app = FastAPI(
         title="Agora API",
-        version="0.0.2",
+        version="0.0.3",
         description="Backend for the mythological 3v3 tactical battler.",
     )
+    # Authlib uses Starlette's session to round-trip OAuth state across redirects.
+    app.add_middleware(SessionMiddleware, secret_key=settings.jwt_signing_secret)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=[settings.web_origin],
@@ -27,6 +30,7 @@ def create_app() -> FastAPI:
     app.include_router(characters.router)
     app.include_router(arenas.router)
     app.include_router(auth.router)
+    app.include_router(match.router)
     return app
 
 

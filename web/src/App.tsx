@@ -3,6 +3,7 @@ import { Link, Navigate, Route, Routes } from "react-router-dom";
 import { LoginPage } from "@/pages/Login";
 import { CharactersPage } from "@/pages/Characters";
 import { ArenasPage } from "@/pages/Arenas";
+import { BattlePage } from "@/pages/Battle";
 import { useAuthStore } from "@/stores/authStore";
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
@@ -22,6 +23,7 @@ function Header() {
       <nav className="flex gap-4 text-sm">
         <Link to="/characters" className="hover:text-white">Characters</Link>
         <Link to="/arenas" className="hover:text-white">Arenas</Link>
+        <Link to="/battle" className="hover:text-white">Battle</Link>
         <button type="button" onClick={clear} className="hover:text-white">
           Sign out
         </button>
@@ -49,6 +51,14 @@ export function App() {
           element={
             <RequireAuth>
               <ArenasPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/battle"
+          element={
+            <RequireAuth>
+              <BattlePage />
             </RequireAuth>
           }
         />
