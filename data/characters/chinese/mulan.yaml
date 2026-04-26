@@ -1,0 +1,37 @@
+id: mulan
+name: Mulan
+mythology: Chinese
+archetype: damage_dealer
+base_hp: 100
+description: |
+  Legendary warrior who took her father's place in the army. Strikes
+  precisely and disappears between blows.
+
+skills:
+  - id: hidden_sword
+    name: "Hidden Sword"
+    kind: instant
+    cost: { vigor: 1 }
+    cooldown: 0
+    target: single_enemy
+    effects:
+      - { kind: damage, value: 18, damage_class: physical }
+
+  - id: disguise
+    name: "Disguise"
+    kind: instant
+    cost: { vigor: 1, generic: 1 }
+    cooldown: 3
+    target: self
+    effects:
+      - { kind: invulnerable, duration: 1 }
+      - { kind: damage_buff, value: 10, duration: 2 }
+
+  - id: family_honor
+    name: "Family Honor"
+    kind: instant
+    cost: { vigor: 2, generic: 1 }
+    cooldown: 5
+    target: single_enemy
+    effects:
+      - { kind: damage, value: 40, damage_class: physical, piercing: true, "true": true }

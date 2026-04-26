@@ -1,0 +1,37 @@
+id: amaterasu
+name: Amaterasu
+mythology: Japanese
+archetype: support
+base_hp: 95
+description: |
+  Sun goddess of Japan. Her light empowers allies and shields them from
+  harm.
+
+skills:
+  - id: solar_mirror
+    name: "Solar Mirror"
+    kind: ongoing
+    cost: { spirit: 1 }
+    cooldown: 0
+    duration: 2
+    target: single_ally
+    effects:
+      - { kind: damage_buff, value: 10, duration: 2 }
+
+  - id: eternal_morning
+    name: "Eternal Morning"
+    kind: instant
+    cost: { spirit: 1, generic: 1 }
+    cooldown: 3
+    target: all_allies
+    effects:
+      - { kind: status, status: regen, duration: 2, value: 8 }
+
+  - id: sacred_cave
+    name: "Sacred Cave"
+    kind: instant
+    cost: { spirit: 3, generic: 2 }
+    cooldown: 7
+    target: all_allies
+    effects:
+      - { kind: invulnerable, duration: 1 }

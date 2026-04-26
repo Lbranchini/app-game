@@ -1,0 +1,38 @@
+id: king_arthur
+name: King Arthur
+mythology: British
+archetype: leader
+base_hp: 110
+description: |
+  Legendary king of Britain. His presence rallies the Round Table to
+  greater feats than any knight could manage alone.
+
+skills:
+  - id: excalibur
+    name: "Excalibur"
+    kind: instant
+    cost: { vigor: 1, generic: 1 }
+    cooldown: 0
+    target: single_enemy
+    effects:
+      - { kind: damage, value: 22, damage_class: holy }
+
+  - id: inspire_knights
+    name: "Inspire Knights"
+    kind: ongoing
+    cost: { vigor: 1, generic: 1 }
+    cooldown: 3
+    duration: 2
+    target: all_allies
+    effects:
+      - { kind: damage_buff, value: 10, duration: 2 }
+
+  - id: round_table
+    name: "Round Table"
+    kind: instant
+    cost: { vigor: 2, generic: 2 }
+    cooldown: 6
+    target: all_allies
+    effects:
+      - { kind: destructible_shield, value: 25 }
+      - { kind: status, status: regen, duration: 2, value: 5 }

@@ -1,0 +1,38 @@
+id: quetzalcoatl
+name: Quetzalcoatl
+mythology: Aztec
+archetype: drainer
+base_hp: 95
+description: |
+  The Feathered Serpent. Steals the breath of those who oppose him.
+
+skills:
+  - id: whispered_wind
+    name: "Whispered Wind"
+    kind: instant
+    cost: { mind: 1 }
+    cooldown: 0
+    target: single_enemy
+    effects:
+      - { kind: damage, value: 12, damage_class: magical }
+      - { kind: essence_drain, value: 1 }
+
+  - id: sacred_plume
+    name: "Sacred Plume"
+    kind: instant
+    cost: { mind: 2 }
+    cooldown: 3
+    target: all_enemies
+    effects:
+      - { kind: damage, value: 20, damage_class: magical }
+      - { kind: essence_drain, value: 1 }
+
+  - id: sacred_breath
+    name: "Sacred Breath"
+    kind: instant
+    cost: { mind: 2, generic: 2 }
+    cooldown: 6
+    target: all_enemies
+    effects:
+      - { kind: essence_drain, value: 3 }
+      - { kind: status, status: drained, duration: 2, value: 0 }

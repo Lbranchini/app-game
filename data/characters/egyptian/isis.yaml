@@ -1,0 +1,38 @@
+id: isis
+name: Isis
+mythology: Egyptian
+archetype: healer
+base_hp: 95
+description: |
+  Mother goddess of the Egyptian pantheon. Her hands close every wound.
+
+skills:
+  - id: mothers_hands
+    name: "Mother's Hands"
+    kind: instant
+    cost: { spirit: 1 }
+    cooldown: 0
+    target: single_ally
+    effects:
+      - { kind: heal, value: 20 }
+
+  - id: protective_wings
+    name: "Protective Wings"
+    kind: instant
+    cost: { spirit: 1, generic: 1 }
+    cooldown: 2
+    target: single_ally
+    effects:
+      - { kind: heal, value: 15 }
+      - { kind: remove_afflictions }
+
+  - id: resurgence
+    name: "Resurgence"
+    kind: instant
+    cost: { spirit: 2, generic: 2 }
+    cooldown: 6
+    target: single_ally
+    effects:
+      - { kind: heal, value: 50 }
+      - { kind: remove_afflictions }
+      - { kind: status, status: regen, duration: 2, value: 10 }

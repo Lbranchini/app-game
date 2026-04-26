@@ -1,0 +1,38 @@
+id: sun_wukong
+name: Sun Wukong
+mythology: Chinese
+archetype: damage_dealer
+base_hp: 100
+description: |
+  The Monkey King. Multiplies into clones, vanishes, and strikes from
+  unexpected angles.
+
+skills:
+  - id: crescent_staff
+    name: "Crescent Staff"
+    kind: instant
+    cost: { vigor: 1 }
+    cooldown: 0
+    target: single_enemy
+    effects:
+      - { kind: damage, value: 18, damage_class: physical }
+
+  - id: hair_clones
+    name: "Hair Clones"
+    kind: instant
+    cost: { vigor: 2 }
+    cooldown: 3
+    target: all_enemies
+    effects:
+      - { kind: damage, value: 12, damage_class: physical }
+
+  - id: monkey_king
+    name: "Monkey King"
+    kind: ongoing
+    cost: { blood: 2, vigor: 1 }
+    cooldown: 5
+    duration: 2
+    target: self
+    effects:
+      - { kind: damage_buff, value: 25, duration: 2 }
+      - { kind: damage_reduction, value: 5, duration: 2 }

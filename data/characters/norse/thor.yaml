@@ -1,0 +1,36 @@
+id: thor
+name: Thor
+mythology: Norse
+archetype: damage_dealer
+base_hp: 105
+description: |
+  God of thunder. Wields Mjolnir, the hammer that breaks mountains.
+
+skills:
+  - id: mjolnir
+    name: "Mjolnir"
+    kind: instant
+    cost: { vigor: 1, spirit: 1 }
+    cooldown: 0
+    target: single_enemy
+    effects:
+      - { kind: damage, value: 25, damage_class: physical }
+
+  - id: side_thunder
+    name: "Side Thunder"
+    kind: instant
+    cost: { spirit: 2 }
+    cooldown: 2
+    target: all_enemies
+    effects:
+      - { kind: damage, value: 18, damage_class: magical }
+
+  - id: ragnarok
+    name: "Ragnarok"
+    kind: instant
+    cost: { spirit: 3, generic: 1 }
+    cooldown: 5
+    target: all_enemies
+    effects:
+      - { kind: damage, value: 35, damage_class: magical, piercing: true }
+      - { kind: status, status: disarm, duration: 1, value: 0 }

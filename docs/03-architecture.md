@@ -87,7 +87,7 @@ web/
 | DB driver / ORM | **SQLAlchemy 2.0** + **Alembic** | Postgres |
 | Cache + matchmaking | **Redis** | Queues, Elo lookups, sessions |
 | Background jobs | **arq** | Post-match rewards, cleanup |
-| Auth | **Firebase Auth** verified server-side | Google + Apple sign-in |
+| Auth | **OAuth 2.0 / OIDC** with Google and Apple as providers, server-issued JWT for our own session | Native sign-in with the user's existing identity provider |
 | Tests | **pytest** + **hypothesis** | Property-based tests on the engine |
 | Lint / types | **ruff + mypy** | Strict |
 | Hosting | **Fly.io** or **Railway** | Easy deploy, decent autoscale |
@@ -238,7 +238,56 @@ Characters do **not** live in the DB — they live in `data/characters/*.yaml`, 
 
 ---
 
-## 9. Open decisions
+## 9. Authentication (OAuth 2.0 / OIDC)
+
+We do **not** roll our own password store. The user signs in with **Google** or **Apple**; we verify the provider's ID token, then issue our own short-lived JWT for the rest of the session.
+
+### Flow (Google example, Apple is structurally identical)
+
+```
+[Web]                         [FastAPI]                          [Google]
+  │                               │                                  │
+  ├── GET /auth/google/login ────>│                                  │
+  │<── 302 to Google authorize ───┤                                  │
+  ├──────────────────────────────────────  redirected by browser  ──>│
+  │<───────────────  302 with ?code=... back to /auth/google/callback│
+  ├── GET /auth/google/callback?code=... ───>│                       │
+  │                               ├── POST /token (code exchange)──>│
+  │                               │<── id_token (signed JWT) ───────┤
+  │                               │  verify against Google's JWKS    │
+  │                               │  upsert players row              │
+  │                               │  issue our own JWT (HS256)       │
+  │<── 200 { access_token } ──────┤                                  │
+  │                               │                                  │
+  ├── GET /me (Bearer <token>) ──>│                                  │
+  │<── 200 { id, username, elo }──┤                                  │
+```
+
+### Implementation
+
+- **Library:** [Authlib](https://docs.authlib.org/) for both providers (handles discovery, token exchange, JWKS caching).
+- **Routes:**
+  - `GET /auth/{provider}/login` → 302 to provider's authorize URL with our state cookie.
+  - `GET /auth/{provider}/callback` (Google) / `POST /auth/{provider}/callback` (Apple — Apple uses POST `form_post` mode) → exchanges code, verifies ID token, upserts the player, returns our JWT.
+  - `GET /me` → returns the authenticated player; 401 otherwise.
+- **Our JWT:** HS256 in MVP (single signing service), 15-minute access token, refresh token in httpOnly cookie.
+- **Apple specifics:**
+  - Apple requires a per-team **Sign in with Apple** capability and a private key (`.p8`) signed by you.
+  - Apple sends the user's name **only on first login** — we persist it then or never see it again.
+  - The callback is HTTP `POST` with form-encoded body (not the typical query-string GET). The route signature differs from Google's.
+- **Required environment variables (server):**
+  - `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI`
+  - `APPLE_TEAM_ID`, `APPLE_CLIENT_ID`, `APPLE_KEY_ID`, `APPLE_PRIVATE_KEY` (the `.p8` content), `APPLE_REDIRECT_URI`
+  - `JWT_SIGNING_SECRET`, `JWT_AUDIENCE`, `JWT_ISSUER`
+- The MVP scaffold ships with **stubs that 501 until those env vars are set** so the rest of the API can run for development.
+
+### Why not Firebase Auth?
+
+Firebase works, but it locks the auth surface inside Google's SDK and pushes us to use Firebase tokens elsewhere (Firestore, etc.) we don't otherwise need. Plain OAuth 2.0 keeps us provider-agnostic — adding GitHub or Discord later is just a new route.
+
+---
+
+## 10. Open decisions
 
 - [ ] Hosting: Fly.io (cheaper) or GCP Cloud Run (more scalable)?
 - [ ] Balance dashboard: Streamlit app or raw SQL queries against PG?

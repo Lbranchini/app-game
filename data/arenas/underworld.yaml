@@ -1,0 +1,11 @@
+id: underworld
+name: "The Underworld"
+description: |
+  Cold mists creep through every chamber. Death lingers in the air.
+  Every fighter is poisoned from the moment the duel begins.
+modifiers:
+  - kind: apply_status_at_start
+    status: poison
+    duration: 3
+    value: 5
+    target: all

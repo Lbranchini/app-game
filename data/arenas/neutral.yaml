@@ -1,0 +1,5 @@
+id: neutral
+name: "Neutral Ground"
+description: |
+  A featureless training plane. No special effects.
+modifiers: []

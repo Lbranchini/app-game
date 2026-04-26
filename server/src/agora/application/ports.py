@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from typing import Protocol
 
+from agora.domain.arena import Arena
 from agora.domain.character import Character
 
 
@@ -15,6 +16,13 @@ class CharacterRepository(Protocol):
 
     def get(self, character_id: str) -> Character: ...
     def all(self) -> dict[str, Character]: ...
+
+
+class ArenaRepository(Protocol):
+    """Source of arena definitions."""
+
+    def get(self, arena_id: str) -> Arena: ...
+    def all(self) -> dict[str, Arena]: ...
 
 
 class RandomSource(Protocol):

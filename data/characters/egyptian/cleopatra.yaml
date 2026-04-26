@@ -1,0 +1,39 @@
+id: cleopatra
+name: Cleopatra
+mythology: Egyptian
+archetype: trickster
+base_hp: 90
+description: |
+  The last pharaoh of Egypt. Her words bend allies and enemies alike.
+
+skills:
+  - id: royal_decree
+    name: "Royal Decree"
+    kind: instant
+    cost: { mind: 1 }
+    cooldown: 0
+    target: single_enemy
+    effects:
+      - { kind: damage, value: 15, damage_class: mental }
+      - { kind: status, status: silence, duration: 1, value: 0 }
+
+  - id: charm
+    name: "Charm"
+    kind: instant
+    cost: { mind: 1, generic: 1 }
+    cooldown: 3
+    target: single_enemy
+    effects:
+      - { kind: status, status: marked, duration: 2, value: 0 }
+      - { kind: damage, value: 10, damage_class: mental }
+
+  - id: queen_of_the_nile
+    name: "Queen of the Nile"
+    kind: control
+    cost: { mind: 3, generic: 1 }
+    cooldown: 7
+    duration: 1
+    target: single_enemy
+    effects:
+      - { kind: status, status: stun, duration: 1, value: 0 }
+      - { kind: damage, value: 25, damage_class: mental, piercing: true }

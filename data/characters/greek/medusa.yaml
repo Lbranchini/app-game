@@ -1,0 +1,38 @@
+id: medusa
+name: Medusa
+mythology: Greek
+archetype: stunner
+base_hp: 90
+description: |
+  The Gorgon whose unsettling gaze turns flesh to stone.
+
+skills:
+  - id: unsettling_gaze
+    name: "Unsettling Gaze"
+    kind: instant
+    cost: { mind: 1 }
+    cooldown: 0
+    target: single_enemy
+    effects:
+      - { kind: damage, value: 15, damage_class: magical }
+      - { kind: status, status: marked, duration: 1, value: 0 }
+
+  - id: serpent_hiss
+    name: "Serpent Hiss"
+    kind: instant
+    cost: { mind: 2 }
+    cooldown: 2
+    target: single_enemy
+    effects:
+      - { kind: damage, value: 25, damage_class: magical }
+
+  - id: petrification
+    name: "Petrification"
+    kind: control
+    cost: { mind: 2, generic: 2 }
+    cooldown: 6
+    duration: 3
+    target: single_enemy
+    effects:
+      - { kind: status, status: stun, duration: 3, value: 0 }
+      - { kind: status, status: vulnerable, duration: 3, value: 0 }

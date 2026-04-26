@@ -1,0 +1,37 @@
+id: joan_of_arc
+name: Joan of Arc
+mythology: Historical
+archetype: tank
+base_hp: 120
+description: |
+  The Maid of Orléans. Shields her companions under the standard of faith.
+
+skills:
+  - id: sacred_sword
+    name: "Sacred Sword"
+    kind: instant
+    cost: { vigor: 1 }
+    cooldown: 0
+    target: single_enemy
+    effects:
+      - { kind: damage, value: 18, damage_class: physical }
+
+  - id: standard_raised
+    name: "Standard Raised"
+    kind: instant
+    cost: { vigor: 1, generic: 1 }
+    cooldown: 3
+    target: all_allies
+    effects:
+      - { kind: damage_reduction, value: 15, duration: 2 }
+
+  - id: vow_of_orleans
+    name: "Vow of Orléans"
+    kind: ongoing
+    cost: { vigor: 2, generic: 2 }
+    cooldown: 6
+    duration: 1
+    target: self
+    effects:
+      - { kind: destructible_shield, value: 50 }
+      - { kind: damage_reduction, value: 25, duration: 1 }

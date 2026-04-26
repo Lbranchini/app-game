@@ -57,6 +57,7 @@ class MatchState(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     match_id: str
+    arena_id: str = "neutral"
     turn: int = 1
     current_side: Side = Side.A
     a: PlayerState

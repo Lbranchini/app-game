@@ -1,0 +1,9 @@
+id: olympus
+name: "Mount Olympus"
+description: |
+  Throne of the Greek pantheon. Anyone of Greek origin draws extra
+  inspiration on this peak.
+modifiers:
+  - kind: hp_boost_by_mythology
+    mythology: Greek
+    value: 5

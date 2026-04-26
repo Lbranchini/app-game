@@ -53,13 +53,15 @@
 
 **Goal:** functional PvP.
 
-- [ ] Auth (Google + Apple sign-in via Firebase).
+- [ ] **OAuth 2.0 sign-in** with Google and Apple (see `docs/03-architecture.md` §9).
 - [ ] Matchmaking (Elo-based queue).
 - [ ] WebSocket client ↔ server.
 - [ ] Authoritative state sync.
 - [ ] Disconnect handling (60s timeout → loss).
 - [ ] Basic telemetry (match length, actions per turn, drop rate).
 - [ ] **Mission system** (see `docs/09-missions.md`): per-player progress counters, MissionService after each match, "Characters" UI with progress bars.
+- [ ] **Ranked draft (ban-pick)** — see `docs/10-draft.md`. Pre-match phase running in Redis with WebSocket-driven UI.
+- [ ] **Arenas** — see `docs/11-arenas.md`. Server picks an arena before draft; modifiers apply at match start (and selected hooks during the match).
 
 **Deliverable:** closed beta with ~20 friends running real matches.
 

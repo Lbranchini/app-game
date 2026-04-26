@@ -1,0 +1,39 @@
+id: inanna
+name: Inanna
+mythology: Mesopotamian
+archetype: support
+base_hp: 95
+description: |
+  Sumerian goddess of love, war, and the morning star. Walks between
+  worlds; pays in pain to bless her allies.
+
+skills:
+  - id: spear_of_dawn
+    name: "Spear of Dawn"
+    kind: instant
+    cost: { spirit: 1 }
+    cooldown: 0
+    target: single_enemy
+    effects:
+      - { kind: damage, value: 18, damage_class: holy }
+      - { kind: heal, value: 5 }
+
+  - id: descent_underworld
+    name: "Descent to the Underworld"
+    kind: instant
+    cost: { blood: 1 }
+    cooldown: 3
+    target: self
+    effects:
+      - { kind: damage, value: 15, "true": true }
+      - { kind: status, status: regen, duration: 2, value: 10 }
+
+  - id: queen_returns
+    name: "The Queen Returns"
+    kind: instant
+    cost: { spirit: 2, blood: 1 }
+    cooldown: 5
+    target: single_ally
+    effects:
+      - { kind: heal, value: 30 }
+      - { kind: damage_buff, value: 10, duration: 2 }
