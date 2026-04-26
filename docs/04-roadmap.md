@@ -9,8 +9,8 @@
 **Objetivo:** validar o conceito antes de escrever código.
 
 - [ ] Aprovar este planejamento.
-- [ ] Decisões em aberto da arquitetura (engine, backend, hosting).
-- [ ] Definir direção de arte (mood board, paleta, estilo).
+- [ ] Decisões em aberto remanescentes (hosting, i18n).
+- [ ] Mood board cartoon: paleta, peso de contorno, estilo de animação (referências: Hades 2D, Slay the Spire, Cult of the Lamb).
 - [ ] Prototipar **em papel** uma partida completa: imprimir 6 cards de personagem com habilidades e jogar contra você mesmo. Identificar furos de regra antes de codar.
 - [ ] Setup do repositório: CI básico, linter, formatter, regras de PR.
 
@@ -20,18 +20,19 @@
 
 ## Fase 1 — Engine de regras (4–6 semanas)
 
-**Objetivo:** servidor autoritativo que resolve partidas via API, sem UI.
+**Objetivo:** servidor Python autoritativo que resolve partidas via API, sem UI.
 
-- [ ] Schema YAML de personagens e habilidades (validado por JSON Schema).
+- [ ] Setup do projeto FastAPI + uv + ruff + mypy + pytest.
+- [ ] Schema YAML dos 16 personagens (validado por Pydantic v2).
 - [ ] Loader: carrega `data/characters/*.yaml` no boot.
-- [ ] Engine de turnos: estado da partida, fila de ações, resolução, cooldowns, status.
+- [ ] Engine de turnos (módulo Python puro): estado da partida, fila de ações, resolução, cooldowns, status.
 - [ ] Suite de testes unitários cobrindo:
   - Cada tipo de habilidade (instantânea, ação, controle).
   - Cada status effect.
   - Casos de prioridade (esquiva antes de ataque, reflect antes de heal, etc.).
 - [ ] CLI para simular partida 3v3 entre dois bots determinísticos.
 
-**Entregável:** `pnpm test` (ou `go test`) verde com ≥ 80% coverage. CLI roda partida ponta-a-ponta em < 1s.
+**Entregável:** `pytest` verde com ≥ 80% coverage. CLI roda partida ponta-a-ponta em < 1s.
 
 ---
 
@@ -40,7 +41,7 @@
 **Objetivo:** UI que joga uma partida contra IA simples.
 
 - [ ] Tela principal (logo + botão "Jogar").
-- [ ] Tela de seleção de equipe (3 personagens dos 12 do MVP).
+- [ ] Tela de seleção de equipe (3 personagens dos 16 do MVP).
 - [ ] Tela de batalha: HUD de essências, painel de personagens, painel de habilidades, fila, botão "PRONTO".
 - [ ] Animações básicas (placeholder ok): ataque, dano, cura, status.
 - [ ] IA "burra" (escolhe ação aleatória válida).
@@ -67,7 +68,8 @@
 
 ## Fase 4 — Conteúdo + Polimento (6–8 semanas)
 
-- [ ] Roster de 12 → 20 personagens.
+- [ ] Roster de 16 → 20 personagens (4 novos: cobrir mitologias menos representadas).
+- [ ] Implementar narrativa em-jogo: cards de origem, frases pós-vitória, intro animada.
 - [ ] Balanceamento: 3 rodadas de playtest, ajustes via PR.
 - [ ] Animações reais (artista contratado ou asset pack).
 - [ ] Áudio: música ambiente + SFX por habilidade.
