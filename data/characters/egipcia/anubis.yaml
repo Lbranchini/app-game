@@ -1,0 +1,37 @@
+id: anubis
+nome: Anúbis
+mitologia: Egípcia
+arquetipo: damage_dealer
+hp_base: 95
+descricao: |
+  Guardião do submundo egípcio. Aplica venenos corrosivos que pesam sobre
+  o coração do inimigo até o julgamento final.
+
+habilidades:
+  - id: bandagens
+    nome: "Bandagens Sufocantes"
+    tipo: instantanea
+    custo: { sangue: 1 }
+    cooldown: 0
+    alvo: inimigo_unico
+    efeitos:
+      - { tipo: dano, valor: 10 }
+      - { tipo: status, status: veneno, duracao: 2, valor: 10 }
+
+  - id: sentenca
+    nome: "Sentença"
+    tipo: instantanea
+    custo: { sangue: 1, mente: 1 }
+    cooldown: 2
+    alvo: inimigo_unico
+    efeitos:
+      - { tipo: dano, valor: 20 }
+
+  - id: pesar
+    nome: "Pesar do Coração"
+    tipo: instantanea
+    custo: { sangue: 2, generica: 1 }
+    cooldown: 5
+    alvo: inimigo_unico
+    efeitos:
+      - { tipo: dano, valor: 30, perfurante: true }

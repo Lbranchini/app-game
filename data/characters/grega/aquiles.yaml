@@ -1,0 +1,39 @@
+id: aquiles
+nome: Aquiles
+mitologia: Grega
+arquetipo: damage_dealer
+hp_base: 110
+descricao: |
+  Maior guerreiro grego da Guerra de Troia. Quase invencível em combate
+  corpo-a-corpo, mas seu calcanhar é o único ponto vulnerável.
+
+habilidades:
+  - id: lanca
+    nome: "Lança Mortal"
+    tipo: instantanea
+    custo: { vigor: 1 }
+    cooldown: 0
+    alvo: inimigo_unico
+    efeitos:
+      - { tipo: dano, valor: 20, classe: fisico }
+
+  - id: investida
+    nome: "Carga dos Mirmidões"
+    tipo: instantanea
+    custo: { vigor: 2 }
+    cooldown: 2
+    alvo: inimigo_unico
+    efeitos:
+      - { tipo: dano, valor: 35, classe: fisico }
+      - { tipo: status, status: sangramento, duracao: 2, valor: 10 }
+
+  - id: furia
+    nome: "Fúria de Pélida"
+    tipo: acao_continua
+    custo: { vigor: 2, generica: 1 }
+    cooldown: 4
+    duracao: 3
+    alvo: si_mesmo
+    efeitos:
+      - { tipo: buff_dano, valor: 15, duracao: 3 }
+      - { tipo: reducao_dano, valor: 10, duracao: 3 }
