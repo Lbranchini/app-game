@@ -63,3 +63,17 @@ def current_user(
     settings: Annotated[Settings, Depends(get_settings)],
 ) -> AuthenticatedUser:
     return decode_access_token(credentials.credentials, settings)
+
+
+def authenticate_ws_token(token: str | None) -> AuthenticatedUser:
+    """Decode a JWT supplied as a `?token=` query parameter on a WebSocket.
+
+    Browsers can't easily set headers on a `WebSocket` upgrade, so we accept
+    the token in the URL. Same JWT contract as the HTTP `Bearer` flow.
+    """
+    if not token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="WebSocket requires ?token=<jwt>",
+        )
+    return decode_access_token(token, get_settings())

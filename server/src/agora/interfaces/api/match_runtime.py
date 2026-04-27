@@ -21,6 +21,10 @@ from agora.application.ports import (
     RandomSource,
 )
 from agora.application.use_cases.draft import DraftService
+from agora.application.use_cases.matchmaking import (
+    MatchmakingService,
+    RandomArenaPicker,
+)
 from agora.domain.draft import DraftState
 from agora.domain.match import Action, MatchState
 from agora.domain.match_record import MatchRecord
@@ -65,6 +69,14 @@ class MatchRuntime:
             characters=characters,
             arenas=arenas,
         )
+        self._matchmaking = MatchmakingService(
+            draft_service=self._draft_service,
+            arena_picker=RandomArenaPicker(list(arenas.all().keys())),
+        )
+        # Per-draft socket fan-out so two clients can watch one draft live.
+        self._draft_sockets: dict[str, list[WebSocket]] = {}
+        # Per-player matchmaking sockets so we can push `match_found`.
+        self._mm_sockets: dict[str, WebSocket] = {}
 
     # --------------------------------------------------------------------- #
     # Drafts                                                                #
@@ -73,6 +85,35 @@ class MatchRuntime:
     @property
     def draft_service(self) -> DraftService:
         return self._draft_service
+
+    @property
+    def matchmaking(self) -> MatchmakingService:
+        return self._matchmaking
+
+    def attach_draft_socket(self, draft_id: str, ws: WebSocket) -> None:
+        self._draft_sockets.setdefault(draft_id, []).append(ws)
+
+    def detach_draft_socket(self, draft_id: str, ws: WebSocket) -> None:
+        sockets = self._draft_sockets.get(draft_id)
+        if sockets and ws in sockets:
+            sockets.remove(ws)
+
+    def draft_sockets_for(self, draft_id: str) -> list[WebSocket]:
+        return list(self._draft_sockets.get(draft_id, []))
+
+    # --------------------------------------------------------------------- #
+    # Matchmaking sockets                                                   #
+    # --------------------------------------------------------------------- #
+
+    def attach_matchmaking_socket(self, player_id: str, ws: WebSocket) -> None:
+        # Replace any older socket for the same player (reconnect-safe).
+        self._mm_sockets[player_id] = ws
+
+    def detach_matchmaking_socket(self, player_id: str) -> None:
+        self._mm_sockets.pop(player_id, None)
+
+    def matchmaking_socket(self, player_id: str) -> WebSocket | None:
+        return self._mm_sockets.get(player_id)
 
     # --------------------------------------------------------------------- #
     # Matches                                                               #

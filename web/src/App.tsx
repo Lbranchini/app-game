@@ -6,6 +6,7 @@ import { ArenasPage } from "@/pages/Arenas";
 import { BattlePage } from "@/pages/Battle";
 import { DraftPage } from "@/pages/Draft";
 import { MatchesPage } from "@/pages/Matches";
+import { MatchmakingPage } from "@/pages/Matchmaking";
 import { useAuthStore } from "@/stores/authStore";
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
@@ -25,8 +26,9 @@ function Header() {
       <nav className="flex gap-4 text-sm">
         <Link to="/characters" className="hover:text-white">Characters</Link>
         <Link to="/arenas" className="hover:text-white">Arenas</Link>
-        <Link to="/draft" className="hover:text-white">Draft</Link>
-        <Link to="/battle" className="hover:text-white">Battle</Link>
+        <Link to="/matchmaking" className="hover:text-white">Play</Link>
+        <Link to="/draft" className="hover:text-white">Draft (dev)</Link>
+        <Link to="/battle" className="hover:text-white">Battle (dev)</Link>
         <Link to="/matches" className="hover:text-white">Matches</Link>
         <button type="button" onClick={clear} className="hover:text-white">
           Sign out
@@ -79,6 +81,22 @@ export function App() {
           element={
             <RequireAuth>
               <DraftPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/draft/:draftId"
+          element={
+            <RequireAuth>
+              <DraftPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/matchmaking"
+          element={
+            <RequireAuth>
+              <MatchmakingPage />
             </RequireAuth>
           }
         />

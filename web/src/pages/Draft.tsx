@@ -1,41 +1,74 @@
-import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 
-import { api } from "@/api/client";
+import { api, auth } from "@/api/client";
 import { draftApi, type DraftState, type Side } from "@/api/draft";
-import type { Arena, Character } from "@/types/api";
+import type { Character } from "@/types/api";
 
 /**
- * Draft page — single-driver mode.
+ * Two modes:
  *
- * Same operator clicks bans and picks for both sides so the flow can be
- * tested end-to-end without matchmaking. The two-player live version uses
- * the same REST endpoints + a WebSocket fan-out (next iteration).
+ * 1. `/draft` — single-driver dev mode. The operator clicks bans and picks for
+ *    both sides; useful when matchmaking is bypassed.
+ * 2. `/draft/:draftId?side=A` — live multiplayer. Subscribes to the draft
+ *    WebSocket and only enables interactions for the user's own side. Routed
+ *    here from `/matchmaking` once the server pairs two players.
  */
 export function DraftPage() {
   const navigate = useNavigate();
+  const params = useParams<{ draftId?: string }>();
+  const [searchParams] = useSearchParams();
+  const querySide = searchParams.get("side") as Side | null;
+  const liveMode = Boolean(params.draftId);
+
   const characters = useQuery({ queryKey: ["characters"], queryFn: api.listCharacters });
   const arenas = useQuery({ queryKey: ["arenas"], queryFn: api.listArenas });
 
   const [arenaId, setArenaId] = useState<string>("olympus");
   const [draft, setDraft] = useState<DraftState | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const wsRef = useRef<WebSocket | null>(null);
 
-  const reset = () => {
-    setDraft(null);
-    setError(null);
-  };
+  // --- live-mode subscription ---------------------------------------------
+  useEffect(() => {
+    if (!liveMode || !params.draftId) return;
+    const token = auth.getToken();
+    if (!token) {
+      setError("Not authenticated.");
+      return;
+    }
+    const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
+    const ws = new WebSocket(
+      `${proto}//${window.location.host}/api/draft/ws/${params.draftId}?token=${encodeURIComponent(token)}`,
+    );
+    ws.onmessage = (msg) => {
+      const frame = JSON.parse(msg.data);
+      if (frame.type === "state") {
+        setDraft(frame.draft);
+        if (frame.match_id) {
+          ws.close();
+          navigate(`/battle/${frame.match_id}`);
+        }
+      }
+    };
+    ws.onerror = () => setError("WebSocket error.");
+    wsRef.current = ws;
+    return () => ws.close();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [liveMode, params.draftId]);
 
+  // --- single-driver dev mode --------------------------------------------
   const start = async () => {
     try {
-      reset();
-      const next = await draftApi.start({
-        side_a_player_id: "you",
-        side_b_player_id: "opponent",
-        arena_id: arenaId,
-      });
-      setDraft(next);
+      setError(null);
+      setDraft(
+        await draftApi.start({
+          side_a_player_id: "you",
+          side_b_player_id: "opponent",
+          arena_id: arenaId,
+        }),
+      );
     } catch (e) {
       setError(String(e));
     }
@@ -44,7 +77,8 @@ export function DraftPage() {
   const ban = async (side: Side, characterId: string) => {
     if (!draft) return;
     try {
-      setDraft(await draftApi.ban(draft.draft_id, side, characterId));
+      const next = await draftApi.ban(draft.draft_id, side, characterId);
+      if (!liveMode) setDraft(next); // live mode receives via WS
     } catch (e) {
       setError(String(e));
     }
@@ -53,29 +87,31 @@ export function DraftPage() {
   const pick = async (side: Side, characterId: string) => {
     if (!draft) return;
     try {
-      setDraft(await draftApi.pick(draft.draft_id, side, characterId));
+      const next = await draftApi.pick(draft.draft_id, side, characterId);
+      if (!liveMode) setDraft(next);
     } catch (e) {
       setError(String(e));
     }
   };
 
-  const finalize = async () => {
-    if (!draft) return;
-    try {
-      const result = await draftApi.finalize(draft.draft_id);
-      navigate(`/battle/${result.match_id}`);
-    } catch (e) {
-      setError(String(e));
-    }
-  };
-
+  // Auto-finalize when both players are done picking.
   useEffect(() => {
-    if (draft?.phase === "confirm") {
-      finalize();
-    }
+    if (!draft || draft.phase !== "confirm") return;
+    // In live mode only one side should drive finalize — the higher of the two ids.
+    if (liveMode && querySide !== "A") return;
+    (async () => {
+      try {
+        const result = await draftApi.finalize(draft.draft_id);
+        if (!liveMode) navigate(`/battle/${result.match_id}`);
+        // In live mode the WS will deliver match_id; navigation happens there.
+      } catch (e) {
+        setError(String(e));
+      }
+    })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draft?.phase]);
 
+  // --- render -------------------------------------------------------------
   if (characters.isLoading || arenas.isLoading) {
     return <p className="p-8">Loading…</p>;
   }
@@ -83,10 +119,17 @@ export function DraftPage() {
     return <p className="p-8 text-red-400">Catalog failed to load.</p>;
   }
 
-  if (!draft) {
+  if (!liveMode && !draft) {
     return (
       <div className="p-8">
-        <h2 className="mb-4 text-2xl font-bold">Ranked Draft</h2>
+        <h2 className="mb-4 text-2xl font-bold">Ranked Draft (dev mode)</h2>
+        <p className="mb-4 text-sm text-slate-400">
+          Drives both sides locally. For multiplayer use{" "}
+          <a className="text-emerald-400 underline" href="/matchmaking">
+            /matchmaking
+          </a>
+          .
+        </p>
         <label className="mb-3 block text-sm text-slate-400">Arena:</label>
         <select
           value={arenaId}
@@ -111,37 +154,59 @@ export function DraftPage() {
     );
   }
 
+  if (!draft) {
+    return <p className="p-8">Connecting to draft…</p>;
+  }
+
   const arena = arenas.data.find((a) => a.id === draft.arena_id);
   const banned = Object.values(draft.bans).filter((v): v is string => v !== null);
   const picked = [...draft.picks.A, ...draft.picks.B];
   const unavailable = new Set([...banned, ...picked]);
 
+  /** Whose turn is it to take the next action? */
+  const expectedSide: Side | null =
+    draft.phase === "ban"
+      ? draft.bans.A === null
+        ? "A"
+        : draft.bans.B === null
+        ? "B"
+        : null
+      : draft.phase === "pick"
+      ? draft.pick_order[draft.pick_index] ?? null
+      : null;
+
+  /** In live mode you can only act when it's your side AND your turn. */
+  const canAct = !liveMode || (querySide !== null && expectedSide === querySide);
+
   const onCharacterClick = (characterId: string) => {
-    if (unavailable.has(characterId)) return;
+    if (!canAct || unavailable.has(characterId) || expectedSide === null) return;
     if (draft.phase === "ban") {
-      const nextSide: Side = draft.bans.A === null ? "A" : "B";
-      ban(nextSide, characterId);
+      ban(expectedSide, characterId);
     } else if (draft.phase === "pick") {
-      const order = draft.pick_order[draft.pick_index];
-      pick(order, characterId);
+      pick(expectedSide, characterId);
     }
   };
 
   return (
     <div className="p-8">
       <header className="mb-6">
-        <h2 className="text-2xl font-bold">Draft</h2>
+        <h2 className="text-2xl font-bold">
+          Draft {liveMode && querySide && `— you are side ${querySide}`}
+        </h2>
         <p className="text-sm text-slate-400">
           Arena <span className="font-semibold">{arena?.name ?? draft.arena_id}</span>{" "}
           {arena?.description && <span className="ml-2 italic">— {arena.description}</span>}
         </p>
         <p className="mt-2 text-sm">
           Phase: <span className="font-semibold uppercase">{draft.phase}</span>
-          {draft.phase === "pick" && (
+          {expectedSide && (
             <>
               {" "}
-              · Now picking:{" "}
-              <span className="font-semibold">side {draft.pick_order[draft.pick_index]}</span>
+              · Now acting:{" "}
+              <span className={canAct ? "font-semibold text-emerald-400" : "font-semibold"}>
+                side {expectedSide}
+                {canAct && " (you)"}
+              </span>
             </>
           )}
         </p>
@@ -158,7 +223,13 @@ export function DraftPage() {
           <CharacterTile
             key={c.id}
             character={c}
-            disabled={unavailable.has(c.id) || draft.phase === "done" || draft.phase === "cancelled"}
+            disabled={
+              !canAct ||
+              unavailable.has(c.id) ||
+              draft.phase === "done" ||
+              draft.phase === "cancelled" ||
+              draft.phase === "confirm"
+            }
             highlight={
               draft.bans.A === c.id || draft.bans.B === c.id
                 ? "banned"
@@ -197,8 +268,7 @@ function SideSummary({
         Ban: <span className="text-slate-200">{ban ?? "—"}</span>
       </p>
       <p className="mt-1 text-sm text-slate-400">
-        Picks:{" "}
-        <span className="text-slate-200">{picks.join(", ") || "—"}</span>
+        Picks: <span className="text-slate-200">{picks.join(", ") || "—"}</span>
       </p>
     </div>
   );

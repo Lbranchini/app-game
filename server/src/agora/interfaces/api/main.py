@@ -6,7 +6,15 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 
-from agora.interfaces.api.routers import arenas, auth, characters, draft, health, match
+from agora.interfaces.api.routers import (
+    arenas,
+    auth,
+    characters,
+    draft,
+    health,
+    match,
+    matchmaking,
+)
 from agora.interfaces.api.settings import get_settings
 
 
@@ -32,6 +40,7 @@ def create_app() -> FastAPI:
     app.include_router(auth.router)
     app.include_router(match.router)
     app.include_router(draft.router)
+    app.include_router(matchmaking.router)
     return app
 
 
