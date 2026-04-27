@@ -8,11 +8,21 @@ through `DraftRepository` so the use case is portable.
 from __future__ import annotations
 
 import uuid
-from typing import Protocol
+from typing import Callable, Protocol
 
 from agora.application.ports import ArenaRepository, CharacterRepository
 from agora.domain.draft import DraftPhase, DraftState
 from agora.domain.enums import Side
+
+
+UnlockedFilter = Callable[[str, str], bool]
+"""`(player_subject, character_id) -> bool` — true if the character is in
+that player's unlocked roster. Default lets everything through (used by
+fixtures and dev paths)."""
+
+
+def _allow_all(_player_subject: str, _character_id: str) -> bool:
+    return True
 
 
 class DraftRepository(Protocol):
@@ -38,10 +48,12 @@ class DraftService:
         repository: DraftRepository,
         characters: CharacterRepository,
         arenas: ArenaRepository,
+        unlocked_filter: UnlockedFilter = _allow_all,
     ) -> None:
         self._repo = repository
         self._characters = characters
         self._arenas = arenas
+        self._unlocked_filter = unlocked_filter
 
     # --------------------------------------------------------------------- #
     # Lifecycle                                                             #
@@ -96,6 +108,12 @@ class DraftService:
             raise DraftError(f"{character_id} is banned")
         if any(character_id in picks for picks in draft.picks.values()):
             raise DraftError(f"{character_id} is already picked")
+
+        picker_subject = (
+            draft.side_a_player_id if side is Side.A else draft.side_b_player_id
+        )
+        if not self._unlocked_filter(picker_subject, character_id):
+            raise DraftError(f"{character_id} is not in your unlocked roster")
 
         draft.picks[side].append(character_id)
         draft.pick_index += 1

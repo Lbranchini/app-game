@@ -26,11 +26,13 @@ from agora.application.ports import (
     ArenaRepository,
     CharacterRepository,
     MatchHistoryRepository,
+    PlayerRepository,
 )
 from agora.interfaces.api.dependencies import (
     get_arena_repository,
     get_character_repository,
     get_match_history_repository,
+    get_player_repository,
 )
 from agora.interfaces.api.match_runtime import MatchRuntime
 from agora.interfaces.api.routers import match as match_router
@@ -43,8 +45,9 @@ def _runtime(
     characters: Annotated[CharacterRepository, Depends(get_character_repository)],
     arenas: Annotated[ArenaRepository, Depends(get_arena_repository)],
     history: Annotated[MatchHistoryRepository, Depends(get_match_history_repository)],
+    players: Annotated[PlayerRepository, Depends(get_player_repository)],
 ) -> MatchRuntime:
-    return match_router._get_runtime(characters, arenas, history)
+    return match_router._get_runtime(characters, arenas, history, players)
 
 
 class QueueStatus(BaseModel):
@@ -83,6 +86,7 @@ async def matchmaking_ws(
     characters: Annotated[CharacterRepository, Depends(get_character_repository)],
     arenas: Annotated[ArenaRepository, Depends(get_arena_repository)],
     history: Annotated[MatchHistoryRepository, Depends(get_match_history_repository)],
+    players: Annotated[PlayerRepository, Depends(get_player_repository)],
     token: str | None = Query(default=None),
 ) -> None:
     """Subscribes to matchmaking notifications for the authenticated player.
@@ -96,7 +100,7 @@ async def matchmaking_ws(
         await websocket.close(code=4401, reason=exc.detail)
         return
 
-    runtime = match_router._get_runtime(characters, arenas, history)
+    runtime = match_router._get_runtime(characters, arenas, history, players)
     await websocket.accept()
     runtime.attach_matchmaking_socket(user.sub, websocket)
     runtime.matchmaking.join(user.sub, display_name=user.name)

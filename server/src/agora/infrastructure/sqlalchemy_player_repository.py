@@ -131,3 +131,20 @@ class SqlAlchemyPlayerRepository:
             if row is None:
                 raise KeyError(player_id)
             return _to_domain(row)
+
+    def get_by_provider(self, provider_subject: str) -> Player | None:
+        with self._session_factory() as session:
+            row = session.execute(
+                select(_PlayerRow).where(_PlayerRow.provider_subject == provider_subject)
+            ).scalar_one_or_none()
+            return _to_domain(row) if row is not None else None
+
+    def update_elo(self, player_id: str, new_elo: int) -> Player:
+        with self._session_factory() as session:
+            row = session.get(_PlayerRow, player_id)
+            if row is None:
+                raise KeyError(player_id)
+            row.elo = new_elo
+            session.commit()
+            session.refresh(row)
+            return _to_domain(row)

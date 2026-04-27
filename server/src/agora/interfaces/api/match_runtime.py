@@ -18,6 +18,7 @@ from agora.application.ports import (
     ArenaRepository,
     CharacterRepository,
     MatchHistoryRepository,
+    PlayerRepository,
     RandomSource,
 )
 from agora.application.use_cases.draft import DraftService
@@ -28,6 +29,7 @@ from agora.application.use_cases.matchmaking import (
 from agora.domain.draft import DraftState
 from agora.domain.match import Action, MatchState
 from agora.domain.match_record import MatchRecord
+from agora.domain.ratings import compute_new_ratings
 from agora.infrastructure.in_memory_draft_repository import InMemoryDraftRepository
 from agora.infrastructure.seeded_random import SeededRandom
 
@@ -59,15 +61,30 @@ class MatchRuntime:
         characters: CharacterRepository,
         arenas: ArenaRepository,
         history: MatchHistoryRepository | None = None,
+        players: PlayerRepository | None = None,
     ) -> None:
         self._characters = characters
         self._arenas = arenas
         self._sessions: dict[str, _MatchSession] = {}
         self._history = history
+        self._players = players
+
+        # Picks are validated against the picking player's unlocked roster.
+        # `dev_*` player ids (used by /match/dev/start and the local Draft UI)
+        # have no row in the players table, so no filter is enforced for them.
+        def _unlocked_filter(player_subject: str, character_id: str) -> bool:
+            if self._players is None or player_subject.startswith("dev_") or player_subject == "you" or player_subject == "opponent":
+                return True
+            player = self._players.get_by_provider(player_subject)
+            if player is None:
+                return True
+            return character_id in player.unlocked_characters
+
         self._draft_service = DraftService(
             repository=InMemoryDraftRepository(),
             characters=characters,
             arenas=arenas,
+            unlocked_filter=_unlocked_filter,
         )
         self._matchmaking = MatchmakingService(
             draft_service=self._draft_service,
@@ -191,25 +208,50 @@ class MatchRuntime:
         return new_state, [e.model_dump() for e in events]
 
     def _maybe_persist(self, match_id: str, session: _MatchSession) -> None:
-        """Save a `MatchRecord` exactly once when the match flips to finished."""
-        if not session.state.finished or session.persisted or self._history is None:
+        """Save a `MatchRecord` and update ELO exactly once when the match flips to finished."""
+        if not session.state.finished or session.persisted:
             return
-        record = MatchRecord(
-            id=match_id,
-            arena_id=session.state.arena_id,
-            side_a_player_id=session.side_a_player_id,
-            side_b_player_id=session.side_b_player_id,
-            team_a=session.team_a,
-            team_b=session.team_b,
-            winner=session.state.winner.value if session.state.winner else None,
-            turns=session.state.turn,
-            seed=session.seed,
-            started_at=session.started_at,
-            ended_at=datetime.utcnow(),
-        )
-        self._history.save(record)
+
+        winner = session.state.winner.value if session.state.winner else None
+
+        if self._history is not None:
+            self._history.save(
+                MatchRecord(
+                    id=match_id,
+                    arena_id=session.state.arena_id,
+                    side_a_player_id=session.side_a_player_id,
+                    side_b_player_id=session.side_b_player_id,
+                    team_a=session.team_a,
+                    team_b=session.team_b,
+                    winner=winner,
+                    turns=session.state.turn,
+                    seed=session.seed,
+                    started_at=session.started_at,
+                    ended_at=datetime.utcnow(),
+                )
+            )
+
+        # ELO update — only when both player ids resolve to real Player rows.
+        if self._players is not None:
+            player_a = self._players.get_by_provider(session.side_a_player_id)
+            player_b = self._players.get_by_provider(session.side_b_player_id)
+            if player_a is not None and player_b is not None:
+                change = compute_new_ratings(player_a.elo, player_b.elo, winner)
+                self._players.update_elo(player_a.id, change.new_a)
+                self._players.update_elo(player_b.id, change.new_b)
+
         session.persisted = True
 
     def sockets_for(self, match_id: str) -> list[WebSocket]:
         session = self._sessions.get(match_id)
         return list(session.sockets) if session else []
+
+    # --------------------------------------------------------------------- #
+    # Lookup helpers used by route auth                                     #
+    # --------------------------------------------------------------------- #
+
+    def participants_of(self, match_id: str) -> tuple[str, str] | None:
+        session = self._sessions.get(match_id)
+        if session is None:
+            return None
+        return session.side_a_player_id, session.side_b_player_id

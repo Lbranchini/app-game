@@ -40,6 +40,10 @@ class PlayerRepository(Protocol):
 
     def get(self, player_id: str) -> Player: ...
 
+    def get_by_provider(self, provider_subject: str) -> Player | None: ...
+
+    def update_elo(self, player_id: str, new_elo: int) -> Player: ...
+
 
 class MatchHistoryRepository(Protocol):
     """Persistence port for finished matches."""

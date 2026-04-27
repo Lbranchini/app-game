@@ -17,6 +17,7 @@ from fastapi import (
     APIRouter,
     Depends,
     HTTPException,
+    Query,
     WebSocket,
     WebSocketDisconnect,
     status,
@@ -27,15 +28,18 @@ from agora.application.ports import (
     ArenaRepository,
     CharacterRepository,
     MatchHistoryRepository,
+    PlayerRepository,
 )
 from agora.domain.draft import DraftPhase, DraftState
 from agora.domain.enums import Side
 from agora.domain.match import Action, MatchState
 from agora.domain.match_record import MatchRecord
+from agora.interfaces.api.security import authenticate_ws_token
 from agora.interfaces.api.dependencies import (
     get_arena_repository,
     get_character_repository,
     get_match_history_repository,
+    get_player_repository,
 )
 from agora.interfaces.api.match_runtime import MatchRuntime
 
@@ -48,11 +52,23 @@ def _get_runtime(
     characters: Annotated[CharacterRepository, Depends(get_character_repository)],
     arenas: Annotated[ArenaRepository, Depends(get_arena_repository)],
     history: Annotated[MatchHistoryRepository, Depends(get_match_history_repository)],
+    players: Annotated[PlayerRepository, Depends(get_player_repository)],
 ) -> MatchRuntime:
     global _runtime
     if _runtime is None:
-        _runtime = MatchRuntime(characters=characters, arenas=arenas, history=history)
+        _runtime = MatchRuntime(
+            characters=characters,
+            arenas=arenas,
+            history=history,
+            players=players,
+        )
     return _runtime
+
+
+def _is_dev_match(side_a_id: str, side_b_id: str) -> bool:
+    """Dev matches use synthetic player ids that aren't in the players table."""
+    dev_prefixes = ("dev_", "you", "opponent")
+    return side_a_id.startswith(dev_prefixes) and side_b_id.startswith(dev_prefixes)
 
 
 class DevStartBody(BaseModel):
@@ -122,14 +138,29 @@ async def match_ws(
     characters: Annotated[CharacterRepository, Depends(get_character_repository)],
     arenas: Annotated[ArenaRepository, Depends(get_arena_repository)],
     history: Annotated[MatchHistoryRepository, Depends(get_match_history_repository)],
+    players: Annotated[PlayerRepository, Depends(get_player_repository)],
+    token: str | None = Query(default=None),
 ) -> None:
-    runtime = _get_runtime(characters, arenas, history)
+    runtime = _get_runtime(characters, arenas, history, players)
 
-    try:
-        runtime.get(match_id)  # Validate existence before accepting.
-    except KeyError:
+    participants = runtime.participants_of(match_id)
+    if participants is None:
         await websocket.close(code=4404)
         return
+
+    side_a_id, side_b_id = participants
+    # Dev matches use synthetic player ids; tokens not required for them so
+    # the existing dev flow keeps working. Real matches require a participant
+    # token.
+    if not _is_dev_match(side_a_id, side_b_id):
+        try:
+            user = authenticate_ws_token(token)
+        except HTTPException as exc:
+            await websocket.close(code=4401, reason=exc.detail)
+            return
+        if user.sub not in (side_a_id, side_b_id):
+            await websocket.close(code=4403, reason="not a participant")
+            return
 
     await websocket.accept()
     await runtime.attach(match_id, websocket)
