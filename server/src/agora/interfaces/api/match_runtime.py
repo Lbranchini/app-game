@@ -27,6 +27,7 @@ from agora.application.use_cases.matchmaking import (
     RandomArenaPicker,
 )
 from agora.application.use_cases.missions import MissionService
+from agora.application.use_cases.unlocks import UnlockService
 from agora.domain.draft import DraftState
 from agora.domain.match import Action, MatchState
 from agora.domain.match_record import MatchRecord
@@ -92,6 +93,7 @@ class MatchRuntime:
             arena_picker=RandomArenaPicker(list(arenas.all().keys())),
         )
         self._missions = MissionService(players) if players is not None else None
+        self._unlocks = UnlockService(players) if players is not None else None
         # Per-draft socket fan-out so two clients can watch one draft live.
         self._draft_sockets: dict[str, list[WebSocket]] = {}
         # Per-player matchmaking sockets so we can push `match_found`.
@@ -210,11 +212,24 @@ class MatchRuntime:
         return new_state, [e.model_dump() for e in events]
 
     def _maybe_persist(self, match_id: str, session: _MatchSession) -> None:
-        """Save a `MatchRecord` and update ELO exactly once when the match flips to finished."""
+        """Save a `MatchRecord` and update ELO + counters + unlocks exactly once."""
         if not session.state.finished or session.persisted:
             return
 
         winner = session.state.winner.value if session.state.winner else None
+
+        # ELO is computed first so the deltas can be persisted on the match record.
+        delta_a: int | None = None
+        delta_b: int | None = None
+        if self._players is not None:
+            player_a = self._players.get_by_provider(session.side_a_player_id)
+            player_b = self._players.get_by_provider(session.side_b_player_id)
+            if player_a is not None and player_b is not None:
+                change = compute_new_ratings(player_a.elo, player_b.elo, winner)
+                self._players.update_elo(player_a.id, change.new_a)
+                self._players.update_elo(player_b.id, change.new_b)
+                delta_a = change.delta_a
+                delta_b = change.delta_b
 
         if self._history is not None:
             self._history.save(
@@ -230,17 +245,10 @@ class MatchRuntime:
                     seed=session.seed,
                     started_at=session.started_at,
                     ended_at=datetime.utcnow(),
+                    elo_delta_a=delta_a,
+                    elo_delta_b=delta_b,
                 )
             )
-
-        # ELO update — only when both player ids resolve to real Player rows.
-        if self._players is not None:
-            player_a = self._players.get_by_provider(session.side_a_player_id)
-            player_b = self._players.get_by_provider(session.side_b_player_id)
-            if player_a is not None and player_b is not None:
-                change = compute_new_ratings(player_a.elo, player_b.elo, winner)
-                self._players.update_elo(player_a.id, change.new_a)
-                self._players.update_elo(player_b.id, change.new_b)
 
         # Mission counters — runs even if only one side has a Player row, so a
         # real player against an opponent still gets credit for the match.
@@ -250,6 +258,13 @@ class MatchRuntime:
                 side_b_subject=session.side_b_player_id,
                 winner=winner,
             )
+
+        # Unlock evaluation reads progress that was just updated above.
+        if self._unlocks is not None and self._players is not None:
+            for subject in (session.side_a_player_id, session.side_b_player_id):
+                player = self._players.get_by_provider(subject)
+                if player is not None:
+                    self._unlocks.apply(player.id)
 
         session.persisted = True
 

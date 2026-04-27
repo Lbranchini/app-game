@@ -49,6 +49,8 @@ class _MatchRow(_Base):
     seed: Mapped[int] = mapped_column(Integer, default=0)
     started_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     ended_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    elo_delta_a: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    elo_delta_b: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
 
 def _to_domain(row: _MatchRow) -> MatchRecord:
@@ -64,6 +66,8 @@ def _to_domain(row: _MatchRow) -> MatchRecord:
         seed=row.seed,
         started_at=row.started_at,
         ended_at=row.ended_at,
+        elo_delta_a=row.elo_delta_a,
+        elo_delta_b=row.elo_delta_b,
     )
 
 
@@ -98,6 +102,8 @@ class SqlAlchemyMatchHistoryRepository:
                 seed=record.seed,
                 started_at=record.started_at,
                 ended_at=record.ended_at,
+                elo_delta_a=record.elo_delta_a,
+                elo_delta_b=record.elo_delta_b,
             )
             session.merge(row)  # idempotent: same id replaces.
             session.commit()

@@ -25,3 +25,7 @@ class MatchRecord(BaseModel):
     seed: int = 0
     started_at: datetime = Field(default_factory=datetime.utcnow)
     ended_at: datetime | None = None
+    # Per-side ELO swing applied at match end. `None` for matches between
+    # players that aren't in the persistence layer (dev_a / dev_b / etc.).
+    elo_delta_a: int | None = None
+    elo_delta_b: int | None = None

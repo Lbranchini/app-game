@@ -158,3 +158,13 @@ class SqlAlchemyPlayerRepository:
             session.commit()
             session.refresh(row)
             return _to_domain(row)
+
+    def update_unlocked(self, player_id: str, unlocked: list[str]) -> Player:
+        with self._session_factory() as session:
+            row = session.get(_PlayerRow, player_id)
+            if row is None:
+                raise KeyError(player_id)
+            row.unlocked_characters_json = json.dumps(list(unlocked))
+            session.commit()
+            session.refresh(row)
+            return _to_domain(row)

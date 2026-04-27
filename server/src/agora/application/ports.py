@@ -48,6 +48,10 @@ class PlayerRepository(Protocol):
         """Replace the player's progress counters."""
         ...
 
+    def update_unlocked(self, player_id: str, unlocked: list[str]) -> Player:
+        """Replace the player's unlocked-character list."""
+        ...
+
 
 class MatchHistoryRepository(Protocol):
     """Persistence port for finished matches."""
