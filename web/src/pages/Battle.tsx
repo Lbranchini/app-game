@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 
-import { api } from "@/api/client";
+import { api, auth } from "@/api/client";
 import {
   computePayment,
   needsTargetPick,
@@ -119,7 +119,10 @@ export function BattlePage() {
 
   const connect = (id: string) => {
     const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
-    const ws = new WebSocket(`${proto}//${window.location.host}/api/match/ws/${id}`);
+    const token = auth.getToken();
+    const url = new URL(`${proto}//${window.location.host}/api/match/ws/${id}`);
+    if (token) url.searchParams.set("token", token);
+    const ws = new WebSocket(url.toString());
     ws.onmessage = (msg) => {
       const frame = JSON.parse(msg.data);
       if (frame.type === "state") {

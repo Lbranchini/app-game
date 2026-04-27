@@ -148,3 +148,13 @@ class SqlAlchemyPlayerRepository:
             session.commit()
             session.refresh(row)
             return _to_domain(row)
+
+    def update_progress(self, player_id: str, progress: dict[str, int]) -> Player:
+        with self._session_factory() as session:
+            row = session.get(_PlayerRow, player_id)
+            if row is None:
+                raise KeyError(player_id)
+            row.progress_json = json.dumps(progress)
+            session.commit()
+            session.refresh(row)
+            return _to_domain(row)

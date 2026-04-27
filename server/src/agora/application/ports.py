@@ -44,6 +44,10 @@ class PlayerRepository(Protocol):
 
     def update_elo(self, player_id: str, new_elo: int) -> Player: ...
 
+    def update_progress(self, player_id: str, progress: dict[str, int]) -> Player:
+        """Replace the player's progress counters."""
+        ...
+
 
 class MatchHistoryRepository(Protocol):
     """Persistence port for finished matches."""

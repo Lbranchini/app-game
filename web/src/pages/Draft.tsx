@@ -24,6 +24,11 @@ export function DraftPage() {
 
   const characters = useQuery({ queryKey: ["characters"], queryFn: api.listCharacters });
   const arenas = useQuery({ queryKey: ["arenas"], queryFn: api.listArenas });
+  const me = useQuery({ queryKey: ["me"], queryFn: api.me });
+  const unlockedSet = useMemo(() => {
+    const list = me.data?.player?.unlocked_characters;
+    return list ? new Set(list) : null; // null = roster filter not applicable yet
+  }, [me.data]);
 
   const [arenaId, setArenaId] = useState<string>("olympus");
   const [draft, setDraft] = useState<DraftState | null>(null);
@@ -217,31 +222,47 @@ export function DraftPage() {
         <SideSummary title="Side B" ban={draft.bans.B} picks={draft.picks.B} />
       </div>
 
-      <h3 className="mt-8 mb-3 text-sm font-semibold uppercase text-slate-400">Pool</h3>
+      <h3 className="mt-8 mb-3 text-sm font-semibold uppercase text-slate-400">
+        Pool
+        {liveMode && unlockedSet && (
+          <span className="ml-2 font-normal text-slate-500">
+            (locked picks are greyed out)
+          </span>
+        )}
+      </h3>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-        {characters.data.map((c) => (
-          <CharacterTile
-            key={c.id}
-            character={c}
-            disabled={
-              !canAct ||
-              unavailable.has(c.id) ||
-              draft.phase === "done" ||
-              draft.phase === "cancelled" ||
-              draft.phase === "confirm"
-            }
-            highlight={
-              draft.bans.A === c.id || draft.bans.B === c.id
-                ? "banned"
-                : draft.picks.A.includes(c.id)
-                ? "team_a"
-                : draft.picks.B.includes(c.id)
-                ? "team_b"
-                : null
-            }
-            onClick={() => onCharacterClick(c.id)}
-          />
-        ))}
+        {characters.data.map((c) => {
+          // Roster filter only applies when this client owns the next pick.
+          const isPick = draft.phase === "pick";
+          const lockedForMe =
+            liveMode && unlockedSet !== null && !unlockedSet.has(c.id) && isPick;
+          return (
+            <CharacterTile
+              key={c.id}
+              character={c}
+              disabled={
+                !canAct ||
+                unavailable.has(c.id) ||
+                lockedForMe ||
+                draft.phase === "done" ||
+                draft.phase === "cancelled" ||
+                draft.phase === "confirm"
+              }
+              highlight={
+                draft.bans.A === c.id || draft.bans.B === c.id
+                  ? "banned"
+                  : draft.picks.A.includes(c.id)
+                  ? "team_a"
+                  : draft.picks.B.includes(c.id)
+                  ? "team_b"
+                  : lockedForMe
+                  ? "locked"
+                  : null
+              }
+              onClick={() => onCharacterClick(c.id)}
+            />
+          );
+        })}
       </div>
 
       {draft.phase === "confirm" && (
@@ -282,13 +303,14 @@ function CharacterTile({
 }: {
   character: Character;
   disabled: boolean;
-  highlight: "banned" | "team_a" | "team_b" | null;
+  highlight: "banned" | "team_a" | "team_b" | "locked" | null;
   onClick: () => void;
 }) {
   const colors = {
     banned: "bg-red-900/40 line-through opacity-60",
     team_a: "bg-blue-900/40 ring-1 ring-blue-500",
     team_b: "bg-amber-900/40 ring-1 ring-amber-500",
+    locked: "bg-slate-900 opacity-30",
   } as const;
   return (
     <button

@@ -2,6 +2,23 @@
 
 import type { Arena, Character } from "@/types/api";
 
+export interface PlayerProfile {
+  id: string;
+  provider_subject: string;
+  email: string | null;
+  name: string | null;
+  elo: number;
+  unlocked_characters: string[];
+  progress: Record<string, number>;
+}
+
+export interface MeResponse {
+  sub: string;
+  email: string | null;
+  name: string | null;
+  player: PlayerProfile | null;
+}
+
 const TOKEN_KEY = "agora.token";
 
 export const auth = {
@@ -34,7 +51,7 @@ export const api = {
   listCharacters: () => request<Character[]>("/characters"),
   getCharacter: (id: string) => request<Character>(`/characters/${id}`),
   listArenas: () => request<Arena[]>("/arenas"),
-  me: () => request<{ sub: string; email: string | null; name: string | null }>("/auth/me"),
+  me: () => request<MeResponse>("/auth/me"),
   devToken: () =>
     request<{ access_token: string; token_type: string }>("/auth/dev-token", {
       method: "POST",

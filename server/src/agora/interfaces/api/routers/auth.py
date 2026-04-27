@@ -19,6 +19,7 @@ from fastapi.responses import JSONResponse, RedirectResponse
 from pydantic import BaseModel
 
 from agora.application.ports import PlayerRepository
+from agora.domain.player import Player
 from agora.interfaces.api.dependencies import get_player_repository
 from agora.interfaces.api.oauth import registry
 from agora.interfaces.api.security import (
@@ -34,6 +35,20 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "Bearer"
+
+
+class MeResponse(BaseModel):
+    """Profile payload returned by `/auth/me`.
+
+    `player` is `None` when the JWT subject doesn't have a row in the players
+    table — e.g. the local `/auth/dev-token` flow before the dev account has
+    completed any sign-in.
+    """
+
+    sub: str
+    email: str | None
+    name: str | None
+    player: Player | None = None
 
 
 @router.get("/google/login")
@@ -126,6 +141,14 @@ def dev_token(
     return TokenResponse(access_token=issue_access_token(user))
 
 
-@router.get("/me", response_model=AuthenticatedUser)
-def me(user: Annotated[AuthenticatedUser, Depends(current_user)]) -> AuthenticatedUser:
-    return user
+@router.get("/me", response_model=MeResponse)
+def me(
+    user: Annotated[AuthenticatedUser, Depends(current_user)],
+    players: Annotated[PlayerRepository, Depends(get_player_repository)],
+) -> MeResponse:
+    return MeResponse(
+        sub=user.sub,
+        email=user.email,
+        name=user.name,
+        player=players.get_by_provider(user.sub),
+    )

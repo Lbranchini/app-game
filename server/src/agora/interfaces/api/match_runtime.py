@@ -26,6 +26,7 @@ from agora.application.use_cases.matchmaking import (
     MatchmakingService,
     RandomArenaPicker,
 )
+from agora.application.use_cases.missions import MissionService
 from agora.domain.draft import DraftState
 from agora.domain.match import Action, MatchState
 from agora.domain.match_record import MatchRecord
@@ -90,6 +91,7 @@ class MatchRuntime:
             draft_service=self._draft_service,
             arena_picker=RandomArenaPicker(list(arenas.all().keys())),
         )
+        self._missions = MissionService(players) if players is not None else None
         # Per-draft socket fan-out so two clients can watch one draft live.
         self._draft_sockets: dict[str, list[WebSocket]] = {}
         # Per-player matchmaking sockets so we can push `match_found`.
@@ -239,6 +241,15 @@ class MatchRuntime:
                 change = compute_new_ratings(player_a.elo, player_b.elo, winner)
                 self._players.update_elo(player_a.id, change.new_a)
                 self._players.update_elo(player_b.id, change.new_b)
+
+        # Mission counters — runs even if only one side has a Player row, so a
+        # real player against an opponent still gets credit for the match.
+        if self._missions is not None:
+            self._missions.record_match_outcome(
+                side_a_subject=session.side_a_player_id,
+                side_b_subject=session.side_b_player_id,
+                winner=winner,
+            )
 
         session.persisted = True
 
