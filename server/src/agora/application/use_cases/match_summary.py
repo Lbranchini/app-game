@@ -20,6 +20,8 @@ class MatchSummary:
     damage_dealt_by_b: int = 0
     damage_taken_by_a: int = 0
     damage_taken_by_b: int = 0
+    healing_done_by_a: int = 0
+    healing_done_by_b: int = 0
     status_applied_by_a: dict[str, int] = field(default_factory=dict)
     status_applied_by_b: dict[str, int] = field(default_factory=dict)
 
@@ -49,6 +51,14 @@ def summarize_events(
                 summary.damage_taken_by_a += value
             elif isinstance(target, str) and target in b_set:
                 summary.damage_taken_by_b += value
+
+        elif event.kind == "heal":
+            value = _coerce_int(details.get("value"))
+            source = details.get("source")
+            if isinstance(source, str) and source in a_set:
+                summary.healing_done_by_a += value
+            elif isinstance(source, str) and source in b_set:
+                summary.healing_done_by_b += value
 
         elif event.kind == "status_applied":
             source = details.get("source")

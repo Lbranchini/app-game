@@ -44,6 +44,7 @@ class MissionService:
                 lost=winner == "B",
                 damage_dealt=summary.damage_dealt_by_a if summary else 0,
                 damage_taken=summary.damage_taken_by_a if summary else 0,
+                healing_done=summary.healing_done_by_a if summary else 0,
                 statuses_applied=summary.status_applied_by_a if summary else None,
             )
         if side_b_player is not None:
@@ -53,6 +54,7 @@ class MissionService:
                 lost=winner == "A",
                 damage_dealt=summary.damage_dealt_by_b if summary else 0,
                 damage_taken=summary.damage_taken_by_b if summary else 0,
+                healing_done=summary.healing_done_by_b if summary else 0,
                 statuses_applied=summary.status_applied_by_b if summary else None,
             )
 
@@ -64,6 +66,7 @@ class MissionService:
         lost: bool,
         damage_dealt: int = 0,
         damage_taken: int = 0,
+        healing_done: int = 0,
         statuses_applied: dict[str, int] | None = None,
     ) -> None:
         progress = dict(player.progress)
@@ -82,6 +85,10 @@ class MissionService:
         if damage_taken:
             progress["total_damage_taken"] = (
                 progress.get("total_damage_taken", 0) + damage_taken
+            )
+        if healing_done:
+            progress["total_healing_done"] = (
+                progress.get("total_healing_done", 0) + healing_done
             )
 
         for name, count in (statuses_applied or {}).items():

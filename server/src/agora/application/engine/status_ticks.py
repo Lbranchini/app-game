@@ -25,10 +25,17 @@ class PoisonTick(StatusTickHandler):
         if ctx.status.value <= 0:
             return
         ctx.character.hp = max(0, ctx.character.hp - ctx.status.value)
+        # `source` carries the original applier so post-match telemetry can
+        # credit them; `tick` keeps the status name for display.
         ctx.events.append(
             Event(
                 kind="damage",
-                details={"source": "poison", "target": ctx.character.id, "value": ctx.status.value},
+                details={
+                    "source": ctx.status.source or "poison",
+                    "tick": "poison",
+                    "target": ctx.character.id,
+                    "value": ctx.status.value,
+                },
             )
         )
 
@@ -44,7 +51,12 @@ class BleedTick(StatusTickHandler):
         ctx.events.append(
             Event(
                 kind="damage",
-                details={"source": "bleed", "target": ctx.character.id, "value": ctx.status.value},
+                details={
+                    "source": ctx.status.source or "bleed",
+                    "tick": "bleed",
+                    "target": ctx.character.id,
+                    "value": ctx.status.value,
+                },
             )
         )
 
@@ -59,7 +71,12 @@ class RegenTick(StatusTickHandler):
             ctx.events.append(
                 Event(
                     kind="heal",
-                    details={"target": ctx.character.id, "value": ctx.character.hp - before},
+                    details={
+                        "source": ctx.status.source or "regen",
+                        "tick": "regen",
+                        "target": ctx.character.id,
+                        "value": ctx.character.hp - before,
+                    },
                 )
             )
 

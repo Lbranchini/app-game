@@ -80,7 +80,11 @@ class HealHandler(EffectHandler):
         ctx.events.append(
             Event(
                 kind="heal",
-                details={"target": target.id, "value": target.hp - before},
+                details={
+                    "source": ctx.source.id,
+                    "target": target.id,
+                    "value": target.hp - before,
+                },
             )
         )
 

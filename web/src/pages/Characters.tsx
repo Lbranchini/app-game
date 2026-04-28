@@ -115,7 +115,7 @@ function LockedCharacterCard({
         <span className="text-xs uppercase text-slate-500">{character.mythology}</span>
       </div>
       <p className="mt-1 text-sm text-slate-500">
-        {character.archetype.replace("_", " ")} · locked
+        HP {character.base_hp} • {character.archetype.replace("_", " ")} · locked
       </p>
       {rule ? (
         <>
@@ -139,6 +139,14 @@ function LockedCharacterCard({
           No unlock rule registered for this character yet.
         </p>
       )}
+      <ul className="mt-4 space-y-1 border-t border-slate-800 pt-3 text-xs">
+        {character.skills.map((s) => (
+          <li key={s.id} className="text-slate-500">
+            <span className="font-medium text-slate-400">{s.name}</span>
+            <span className="ml-2 text-slate-600">CD {s.cooldown}</span>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
