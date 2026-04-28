@@ -1,53 +1,78 @@
 """Threshold-based character unlocks.
 
-A small registry of `(character_id -> rule)` pairs evaluated after every
-finished match. Rules read from `Player.progress` so adding a new rule that
-references existing counters (wins, total_damage_dealt, status_applied.X)
-requires no engine changes.
+A small registry of rules evaluated after every finished match. Each rule
+points at a single counter in `Player.progress` (e.g. `wins`,
+`matches_played`) and a numeric threshold; richer rules can override
+`predicate` directly.
+
+Keeping the rule shape data-driven means the frontend can fetch the catalog
+and render each rule as a progress bar without re-implementing the math.
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Callable
 
 from agora.application.ports import PlayerRepository
 from agora.domain.player import Player
 
 
-Rule = Callable[[Player], bool]
+Predicate = Callable[[Player], bool]
 
 
 @dataclass(frozen=True)
 class UnlockRule:
     character_id: str
     description: str
-    predicate: Rule
+    progress_key: str | None = None
+    target: int | None = None
+    predicate: Predicate | None = field(default=None, repr=False)
+
+    def __post_init__(self) -> None:
+        # Either threshold form OR a custom predicate must be present.
+        if self.predicate is None and (self.progress_key is None or self.target is None):
+            raise ValueError(
+                f"Rule for {self.character_id} needs progress_key + target or a predicate"
+            )
+
+    def is_satisfied(self, player: Player) -> bool:
+        if self.predicate is not None:
+            return self.predicate(player)
+        assert self.progress_key is not None and self.target is not None
+        return player.progress.get(self.progress_key, 0) >= self.target
+
+    def progress_for(self, player: Player) -> tuple[int, int] | None:
+        """Return `(current, target)` if this rule is threshold-based, else None."""
+        if self.progress_key is None or self.target is None:
+            return None
+        return player.progress.get(self.progress_key, 0), self.target
 
 
-# Small starter catalog. The full design lives in docs/09-missions.md;
-# every character there gets three thematic mission rules. For now we ship
-# a tight set keyed off the universal `wins` counter and grow from here.
 DEFAULT_RULES: tuple[UnlockRule, ...] = (
     UnlockRule(
         character_id="medusa",
         description="Win 5 ranked matches",
-        predicate=lambda p: p.progress.get("wins", 0) >= 5,
+        progress_key="wins",
+        target=5,
     ),
     UnlockRule(
         character_id="sun_wukong",
         description="Win 10 ranked matches",
-        predicate=lambda p: p.progress.get("wins", 0) >= 10,
+        progress_key="wins",
+        target=10,
     ),
     UnlockRule(
         character_id="mulan",
         description="Win 25 ranked matches",
-        predicate=lambda p: p.progress.get("wins", 0) >= 25,
+        progress_key="wins",
+        target=25,
     ),
     UnlockRule(
         character_id="amaterasu",
         description="Play 50 matches (any outcome)",
-        predicate=lambda p: p.progress.get("matches_played", 0) >= 50,
+        progress_key="matches_played",
+        target=50,
     ),
 )
 
@@ -67,6 +92,10 @@ class UnlockService:
         self._players = players
         self._rules = rules
 
+    @property
+    def rules(self) -> tuple[UnlockRule, ...]:
+        return self._rules
+
     def apply(self, player_id: str) -> list[str]:
         """Return the list of newly-unlocked character ids."""
         player = self._players.get(player_id)
@@ -75,7 +104,7 @@ class UnlockService:
         for rule in self._rules:
             if rule.character_id in owned:
                 continue
-            if rule.predicate(player):
+            if rule.is_satisfied(player):
                 owned.add(rule.character_id)
                 newly.append(rule.character_id)
         if newly:

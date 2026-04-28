@@ -52,8 +52,17 @@ export const api = {
   getCharacter: (id: string) => request<Character>(`/characters/${id}`),
   listArenas: () => request<Arena[]>("/arenas"),
   me: () => request<MeResponse>("/auth/me"),
+  listUnlockRules: () =>
+    request<UnlockRulePayload[]>("/unlocks/rules"),
   devToken: () =>
     request<{ access_token: string; token_type: string }>("/auth/dev-token", {
       method: "POST",
     }),
 };
+
+export interface UnlockRulePayload {
+  character_id: string;
+  description: string;
+  progress_key: string | null;
+  target: number | null;
+}
