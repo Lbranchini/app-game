@@ -113,6 +113,7 @@ class _StatusApplyingHandler(EffectHandler):
                     "status": self.name,
                     "duration": duration,
                     "value": value,
+                    "source": ctx.source.id,
                 },
             )
         )
@@ -172,6 +173,7 @@ class StatusHandler(EffectHandler):
                     "status": effect.status,
                     "duration": effect.duration,
                     "value": effect.value,
+                    "source": ctx.source.id,
                 },
             )
         )

@@ -22,6 +22,7 @@ from agora.application.ports import (
     RandomSource,
 )
 from agora.application.use_cases.draft import DraftService
+from agora.application.use_cases.match_summary import summarize_events
 from agora.application.use_cases.matchmaking import (
     MatchmakingService,
     RandomArenaPicker,
@@ -29,6 +30,7 @@ from agora.application.use_cases.matchmaking import (
 from agora.application.use_cases.missions import MissionService
 from agora.application.use_cases.unlocks import UnlockService
 from agora.domain.draft import DraftState
+from agora.domain.events import Event
 from agora.domain.match import Action, MatchState
 from agora.domain.match_record import MatchRecord
 from agora.domain.ratings import compute_new_ratings
@@ -49,6 +51,9 @@ class _MatchSession:
     sockets: list[WebSocket] = field(default_factory=list)
     lock: asyncio.Lock = field(default_factory=asyncio.Lock)
     persisted: bool = False
+    # Full per-match event log so the post-match telemetry has the whole
+    # game to summarize, not just the events from the final turn.
+    event_log: list[Event] = field(default_factory=list)
 
 
 class MatchRuntime:
@@ -208,6 +213,7 @@ class MatchRuntime:
         async with session.lock:
             new_state, events = session.engine.resolve_turn(session.state, actions)
             session.state = new_state
+            session.event_log.extend(events)
             self._maybe_persist(match_id, session)
         return new_state, [e.model_dump() for e in events]
 
@@ -253,10 +259,17 @@ class MatchRuntime:
         # Mission counters — runs even if only one side has a Player row, so a
         # real player against an opponent still gets credit for the match.
         if self._missions is not None:
+            summary = summarize_events(
+                session.event_log,
+                team_a=session.team_a,
+                team_b=session.team_b,
+                winner=winner,
+            )
             self._missions.record_match_outcome(
                 side_a_subject=session.side_a_player_id,
                 side_b_subject=session.side_b_player_id,
                 winner=winner,
+                summary=summary,
             )
 
         # Unlock evaluation reads progress that was just updated above.

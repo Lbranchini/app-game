@@ -77,7 +77,16 @@ def test_default_rule_set_targets_documented_characters() -> None:
     # Sanity: every rule in the default registry references a character id
     # we ship in `data/characters/`. Catches drift if a rule is added
     # without its YAML.
-    expected = {"medusa", "sun_wukong", "mulan", "amaterasu"}
+    expected = {
+        "medusa",
+        "sun_wukong",
+        "mulan",
+        "amaterasu",
+        "cleopatra",
+        "inanna",
+        "quetzalcoatl",
+        "king_arthur",
+    }
     assert {r.character_id for r in DEFAULT_RULES} == expected
 
 

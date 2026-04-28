@@ -74,6 +74,30 @@ DEFAULT_RULES: tuple[UnlockRule, ...] = (
         progress_key="matches_played",
         target=50,
     ),
+    UnlockRule(
+        character_id="cleopatra",
+        description="Apply silence to enemies 50 times",
+        progress_key="status_applied.silence",
+        target=50,
+    ),
+    UnlockRule(
+        character_id="inanna",
+        description="Deal 5,000 cumulative damage",
+        progress_key="total_damage_dealt",
+        target=5000,
+    ),
+    UnlockRule(
+        character_id="quetzalcoatl",
+        description="Apply drained to enemies 100 times",
+        progress_key="status_applied.drained",
+        target=100,
+    ),
+    UnlockRule(
+        character_id="king_arthur",
+        description="Win 50 ranked matches",
+        progress_key="wins",
+        target=50,
+    ),
 )
 
 
