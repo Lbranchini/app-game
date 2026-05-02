@@ -8,8 +8,9 @@ a Redis-backed match store + pub/sub for fan-out across pods.
 from __future__ import annotations
 
 import asyncio
+import logging
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from fastapi import WebSocket
 
@@ -37,6 +38,13 @@ from agora.domain.ratings import compute_new_ratings
 from agora.infrastructure.in_memory_draft_repository import InMemoryDraftRepository
 from agora.infrastructure.seeded_random import SeededRandom
 
+logger = logging.getLogger(__name__)
+
+# Server-authoritative turn deadline. Clients show a countdown derived from
+# `state.turn_deadline`; if the deadline passes, the runtime resolves the
+# turn with whatever (potentially empty) action set is queued.
+TURN_DURATION = timedelta(seconds=60)
+
 
 @dataclass
 class _MatchSession:
@@ -54,6 +62,8 @@ class _MatchSession:
     # Full per-match event log so the post-match telemetry has the whole
     # game to summarize, not just the events from the final turn.
     event_log: list[Event] = field(default_factory=list)
+    # Background task that fires when the active turn's deadline expires.
+    deadline_task: asyncio.Task[None] | None = None
 
 
 class MatchRuntime:
@@ -174,6 +184,10 @@ class MatchRuntime:
             seed=seed,
             arena=arena,
         )
+        # Seed the first turn deadline. The watcher task is armed lazily on
+        # the first WebSocket attach, since create_task needs a running loop
+        # and `create_match_from_draft` is invoked from sync REST handlers.
+        state.turn_deadline = datetime.utcnow() + TURN_DURATION
         self._sessions[match_id] = _MatchSession(
             state=state,
             engine=engine,
@@ -196,6 +210,8 @@ class MatchRuntime:
         if session is None:
             raise KeyError(match_id)
         session.sockets.append(ws)
+        # First attach lazily arms the deadline watcher.
+        await self._ensure_deadline_watcher(match_id)
 
     def detach(self, match_id: str, ws: WebSocket) -> None:
         session = self._sessions.get(match_id)
@@ -205,17 +221,114 @@ class MatchRuntime:
             session.sockets.remove(ws)
 
     async def submit_actions(
-        self, match_id: str, actions: list[Action]
+        self,
+        match_id: str,
+        actions: list[Action],
+        *,
+        auto_resolved: bool = False,
     ) -> tuple[MatchState, list[dict[str, object]]]:
+        """Resolve a turn, persist if final, broadcast, and re-arm the deadline.
+
+        The auto-resolver passes `auto_resolved=True` so clients can show a
+        small marker ("turn auto-resolved") on the resulting frame.
+        """
         session = self._sessions.get(match_id)
         if session is None:
             raise KeyError(match_id)
         async with session.lock:
             new_state, events = session.engine.resolve_turn(session.state, actions)
+            if not new_state.finished:
+                new_state.turn_deadline = datetime.utcnow() + TURN_DURATION
+            else:
+                new_state.turn_deadline = None
             session.state = new_state
             session.event_log.extend(events)
             self._maybe_persist(match_id, session)
-        return new_state, [e.model_dump() for e in events]
+        # Re-arm + broadcast outside the lock so a slow socket can't stall
+        # the engine itself.
+        await self._ensure_deadline_watcher(match_id)
+        event_dicts = [e.model_dump() for e in events]
+        await self._broadcast(match_id, new_state, event_dicts, auto_resolved=auto_resolved)
+        return new_state, event_dicts
+
+    async def _broadcast(
+        self,
+        match_id: str,
+        state: MatchState,
+        events: list[dict[str, object]],
+        *,
+        auto_resolved: bool = False,
+    ) -> None:
+        payload: dict[str, object] = {
+            "type": "state",
+            "state": state.model_dump(mode="json"),
+            "events": events,
+        }
+        if auto_resolved:
+            payload["auto_resolved"] = True
+        for ws in self.sockets_for(match_id):
+            try:
+                await ws.send_json(payload)
+            except Exception:
+                self.detach(match_id, ws)
+
+    async def _ensure_deadline_watcher(self, match_id: str) -> None:
+        session = self._sessions.get(match_id)
+        if session is None:
+            return
+        # Cancel any previous watcher; deadline values may have shifted.
+        if session.deadline_task and not session.deadline_task.done():
+            session.deadline_task.cancel()
+            session.deadline_task = None
+        if session.state.finished or session.state.turn_deadline is None:
+            return
+        deadline = session.state.turn_deadline
+        session.deadline_task = asyncio.create_task(
+            self._watch_deadline(match_id, deadline)
+        )
+
+    async def _watch_deadline(self, match_id: str, deadline: datetime) -> None:
+        try:
+            wait = (deadline - datetime.utcnow()).total_seconds()
+            if wait > 0:
+                await asyncio.sleep(wait)
+            await self._auto_resolve_if_due(match_id, deadline)
+        except asyncio.CancelledError:
+            return
+
+    async def _auto_resolve_if_due(self, match_id: str, expected: datetime) -> None:
+        """Resolve the turn with empty actions if the deadline still matches.
+
+        The deadline check happens inside the session lock so a real
+        submission landing in the same tick wins the race and this watcher
+        becomes a no-op.
+        """
+        session = self._sessions.get(match_id)
+        if session is None:
+            return
+        try:
+            async with session.lock:
+                if session.state.finished:
+                    return
+                if session.state.turn_deadline != expected:
+                    return  # superseded by a real submission
+                new_state, events = session.engine.resolve_turn(session.state, [])
+                if not new_state.finished:
+                    new_state.turn_deadline = datetime.utcnow() + TURN_DURATION
+                else:
+                    new_state.turn_deadline = None
+                session.state = new_state
+                session.event_log.extend(events)
+                self._maybe_persist(match_id, session)
+            await self._ensure_deadline_watcher(match_id)
+            await self._broadcast(
+                match_id,
+                new_state,
+                [e.model_dump() for e in events],
+                auto_resolved=True,
+            )
+        except Exception:
+            logger.exception("auto-resolve failed for match %s", match_id)
 
     def _maybe_persist(self, match_id: str, session: _MatchSession) -> None:
         """Save a `MatchRecord` and update ELO + counters + unlocks exactly once."""

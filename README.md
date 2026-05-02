@@ -49,13 +49,45 @@ Web-first turn-based 3v3 tactical battler with characters drawn from world mytho
 └── web/                 React frontend (planned, not scaffolded yet)
 ```
 
-## Quick start (backend)
+## Quick start
 
+### With Docker (recommended for local play)
+
+```bash
+cp .env.example .env
+docker compose up --build
+```
+
+Then open:
+- **Web client:** http://localhost:5173
+- **API + Swagger UI:** http://localhost:8000/docs
+
+Hot reload is enabled for both services — edit `server/src/...` or `web/src/...`
+and the running container picks it up. SQLite state survives across restarts in
+the `server-state` named volume.
+
+To swap SQLite for Postgres, edit `.env` per its comments and run:
+
+```bash
+docker compose --profile postgres up --build
+```
+
+### Native (without Docker)
+
+Backend:
 ```bash
 cd server
 pip install -e ".[dev]"
-pytest                      # 15 tests
+pytest                      # 125 tests
 agora-sim --runs 100 --quiet
+agora-api                   # serves on :8000
+```
+
+Frontend:
+```bash
+cd web
+npm install
+npm run dev                 # serves on :5173 with proxy to :8000
 ```
 
 ## Status

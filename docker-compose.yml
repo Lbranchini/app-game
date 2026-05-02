@@ -1,0 +1,74 @@
+# Local dev orchestration. Default target = SQLite. Switch to Postgres by
+# running `docker compose --profile postgres up`.
+#
+#   docker compose up           # server + web, SQLite, hot reload
+#   docker compose --profile postgres up
+#                                # server + web + postgres
+#
+# Then open http://localhost:5173 (web) or http://localhost:8000/docs (API).
+
+services:
+  server:
+    build:
+      context: ./server
+    image: agora-server:dev
+    env_file: .env
+    environment:
+      # Bind-mounted /data ensures Path(__file__).parents[4] / "data"
+      # finds the YAML character/arena files at /data.
+      DATABASE_URL: ${DATABASE_URL:-sqlite:////app/state/agora.db}
+      WEB_ORIGIN: ${WEB_ORIGIN:-http://localhost:5173}
+    volumes:
+      - ./server/src:/app/src:cached
+      - ./server/tests:/app/tests:cached
+      - ./data:/data:ro
+      - server-state:/app/state
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test: ["CMD-SHELL", "python -c 'import urllib.request,sys; urllib.request.urlopen(\"http://localhost:8000/health\").read()'"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+
+  web:
+    build:
+      context: ./web
+    image: agora-web:dev
+    environment:
+      VITE_API_PROXY_TARGET: http://server:8000
+    volumes:
+      - ./web/src:/app/src:cached
+      - ./web/index.html:/app/index.html:cached
+      - ./web/public:/app/public:cached
+      - ./web/tailwind.config.ts:/app/tailwind.config.ts:cached
+      - ./web/postcss.config.js:/app/postcss.config.js:cached
+      - ./web/vite.config.ts:/app/vite.config.ts:cached
+      - ./web/tsconfig.json:/app/tsconfig.json:cached
+    ports:
+      - "5173:5173"
+    depends_on:
+      server:
+        condition: service_healthy
+
+  postgres:
+    image: postgres:16-alpine
+    profiles: ["postgres"]
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-agora}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-agora}
+      POSTGRES_DB: ${POSTGRES_DB:-agora}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "${POSTGRES_USER:-agora}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  server-state:
+  postgres-data:

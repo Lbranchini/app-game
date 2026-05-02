@@ -179,17 +179,9 @@ async def match_ws(
                 await websocket.send_json({"type": "error", "detail": f"bad action: {exc}"})
                 continue
 
-            new_state, events = await runtime.submit_actions(match_id, actions)
-            payload = {
-                "type": "state",
-                "state": new_state.model_dump(mode="json"),
-                "events": events,
-            }
-            for ws in runtime.sockets_for(match_id):
-                try:
-                    await ws.send_json(payload)
-                except Exception:  # noqa: BLE001
-                    runtime.detach(match_id, ws)
+            # `submit_actions` resolves the turn, persists when final, and
+            # fans the new state out to every attached socket itself.
+            await runtime.submit_actions(match_id, actions)
     except WebSocketDisconnect:
         runtime.detach(match_id, websocket)
     except Exception:  # noqa: BLE001

@@ -42,6 +42,8 @@ interface MatchState {
   b: PlayerState;
   finished: boolean;
   winner: "A" | "B" | null;
+  // ISO-8601 string emitted by the server. Null while the match is finished.
+  turn_deadline: string | null;
 }
 
 interface MatchEvent {
@@ -146,6 +148,7 @@ export function BattlePage() {
   const wsRef = useRef<WebSocket | null>(null);
   const floatId = useRef(0);
   const splashSeenRef = useRef<Set<string>>(new Set());
+  const queueRef = useRef<QueuedAction[]>([]);
 
   const toggleMute = () => {
     setMuted((prev) => {
@@ -185,6 +188,30 @@ export function BattlePage() {
     if (!state) return;
     setTurnStartedAt(Date.now());
   }, [state?.turn, state?.current_side]);
+
+  // Mirror the queue into a ref so the auto-submit timer (set up once per
+  // deadline change) can read the latest value without re-scheduling.
+  useEffect(() => {
+    queueRef.current = queue;
+  }, [queue]);
+
+  // Auto-submit whatever the player has queued ~500ms before the server's
+  // deadline. The server will auto-resolve at the deadline regardless; this
+  // gives queued actions a chance to land first instead of being dropped.
+  useEffect(() => {
+    if (!state || state.finished || !state.turn_deadline) return;
+    const fireAt = Date.parse(state.turn_deadline) - 500;
+    const wait = fireAt - Date.now();
+    if (wait <= 0) return;
+    const handle = window.setTimeout(() => {
+      const q = queueRef.current;
+      if (q.length === 0) return;
+      const ws = wsRef.current;
+      if (!ws || ws.readyState !== WebSocket.OPEN) return;
+      ws.send(JSON.stringify({ type: "actions", actions: q }));
+    }, wait);
+    return () => window.clearTimeout(handle);
+  }, [state?.turn_deadline, state?.finished]);
 
   // Show the VS splash once per match — only on the first arrival at turn 1.
   useEffect(() => {
@@ -279,8 +306,18 @@ export function BattlePage() {
         setQueue([]);  // server resolved a turn — local queue is stale
         setPending(null);
         if (Array.isArray(frame.events)) {
-          setEvents((prev) => [...prev, ...frame.events]);
-          spawnFloats(frame.events as MatchEvent[]);
+          const events = frame.events as MatchEvent[];
+          // Tag auto-resolved frames so the event log makes it visible.
+          if (frame.auto_resolved) {
+            setEvents((prev) => [
+              ...prev,
+              { kind: "turn_auto_resolved", details: {} },
+              ...events,
+            ]);
+          } else {
+            setEvents((prev) => [...prev, ...events]);
+          }
+          spawnFloats(events);
         }
       } else if (frame.type === "error") {
         setError(frame.detail);
@@ -376,11 +413,19 @@ export function BattlePage() {
     ? targetCandidates(pending.skill, activePlayer, opponent).map((c) => c.id)
     : null;
 
-  const elapsedMs = state.finished ? 0 : Math.max(0, now - turnStartedAt);
-  const timerRatio = state.finished
-    ? 0
-    : Math.max(0, 1 - elapsedMs / (TURN_TIMER_SECONDS * 1000));
-  const secondsLeft = state.finished ? 0 : Math.max(0, Math.ceil(TURN_TIMER_SECONDS - elapsedMs / 1000));
+  // Server-authoritative timer. We parse the deadline once per render and let
+  // the 250ms `now` tick drive the visible countdown. If the server didn't
+  // send a deadline (older snapshot or finished match), we fall back to the
+  // local turnStartedAt + TURN_TIMER_SECONDS for continuity.
+  const serverDeadline = state.turn_deadline ? Date.parse(state.turn_deadline) : null;
+  const localDeadline = turnStartedAt + TURN_TIMER_SECONDS * 1000;
+  const deadlineMs = state.finished ? null : (serverDeadline ?? localDeadline);
+  const totalMs = serverDeadline
+    ? TURN_TIMER_SECONDS * 1000  // server uses the same 60s today
+    : TURN_TIMER_SECONDS * 1000;
+  const remainingMs = deadlineMs === null ? 0 : Math.max(0, deadlineMs - now);
+  const timerRatio = deadlineMs === null ? 0 : Math.max(0, Math.min(1, remainingMs / totalMs));
+  const secondsLeft = Math.ceil(remainingMs / 1000);
 
   return (
     <div className="mx-auto flex min-h-screen max-w-5xl flex-col gap-4 px-4 py-6">

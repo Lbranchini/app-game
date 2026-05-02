@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import datetime
+
 from pydantic import BaseModel, ConfigDict, Field
 
 from agora.domain.enums import Essence, Side
@@ -65,6 +67,11 @@ class MatchState(BaseModel):
     rng_seed: int = 0
     finished: bool = False
     winner: Side | None = None
+    # Server-authoritative timer. `turn_deadline` is the wall-clock instant
+    # after which the active side's turn auto-resolves with whatever they've
+    # submitted (or an empty queue). The runtime updates this on every
+    # advance; the engine itself doesn't read it.
+    turn_deadline: datetime | None = None
 
     def player(self, side: Side) -> PlayerState:
         return self.a if side is Side.A else self.b
