@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, motion, useAnimationControls } from "framer-motion";
 
 import { api, auth } from "@/api/client";
 import {
@@ -583,8 +583,24 @@ function CharacterPortrait({
 
   const handle = interactive ? onClick : undefined;
 
+  // Shake whenever a new damage float arrives for this character.
+  const shakeControls = useAnimationControls();
+  const lastShakeIdRef = useRef<number | null>(null);
+  useEffect(() => {
+    const damages = floats.filter((f) => f.kind === "damage");
+    if (damages.length === 0) return;
+    const latestId = damages[damages.length - 1].id;
+    if (lastShakeIdRef.current === latestId) return;
+    lastShakeIdRef.current = latestId;
+    shakeControls.start({
+      x: [0, -6, 6, -4, 4, 0],
+      transition: { duration: 0.4, ease: "easeOut" },
+    });
+  }, [floats, shakeControls]);
+
   return (
-    <div
+    <motion.div
+      animate={shakeControls}
       role={interactive ? "button" : undefined}
       onClick={handle}
       className={[
@@ -646,7 +662,7 @@ function CharacterPortrait({
           KO
         </div>
       )}
-    </div>
+    </motion.div>
   );
 }
 
