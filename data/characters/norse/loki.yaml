@@ -31,10 +31,11 @@ skills:
   - id: asgard_deceit
     name: "Asgard's Deceit"
     kind: ongoing
-    cost: { mind: 2, generic: 2 }
+    cost: { mind: 2, generic: 1 }
     cooldown: 6
-    duration: 1
+    duration: 2
     target: self
     effects:
-      - { kind: status, status: marked, duration: 1, value: 0 }
-      - { kind: damage_reduction, value: 30, duration: 1 }
+      # The next enemy skill aimed at Loki bounces back to its caster.
+      # Reflective is a one-shot status — duration is the wait window.
+      - { kind: status, status: reflective, duration: 2 }

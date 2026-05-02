@@ -225,3 +225,11 @@ EFFECT_HANDLERS: dict[EffectKind, EffectHandler] = {
     EffectKind.ESSENCE_DRAIN: EssenceDrainHandler(),
     EffectKind.REMOVE_AFFLICTIONS: RemoveAfflictionsHandler(),
 }
+
+# `copy` (per docs/07-glossary.md) is intentionally not in this registry:
+# the design ("the user temporarily gains a copy of a skill from the target")
+# requires changes outside the effect-handler boundary — tracking each
+# character's last skill on CharacterState, exposing granted skills through
+# SkillValidator, and consuming them after a single use. Add an EffectKind +
+# handler only once that plumbing exists, otherwise YAML would validate but
+# the engine would silently ignore the effect.

@@ -27,8 +27,9 @@
 - [x] Repository loader.
 - [x] Engine of turns (pure module): match state, action queue, resolution, cooldowns, statuses.
 - [x] CLI bot-vs-bot simulator.
-- [ ] All 16 character YAMLs (3 done: Achilles / Athena / Anubis).
-- [ ] All status effects (poison/DR/shield/buff/invuln/piercing done; stun/silence/disarm/drain/bleed/regen/marked/vulnerable/reflect/copy pending).
+- [x] All 16 character YAMLs.
+- [x] Status effects: poison, bleed, regen, drained, stun, silence, disarm, marked, vulnerable, invulnerable, damage_reduction, damage_buff, destructible_shield, reflective.
+- [ ] `copy` (Loki's third archetype lever): blocked on plumbing for granted-skill tracking on `CharacterState` + `SkillValidator`. Effect handler intentionally omitted until that lands — see comment in `effect_handlers.py`.
 - [ ] Test coverage ≥ 80%.
 
 **Deliverable:** `pytest` green with ≥ 80% coverage. CLI runs an end-to-end match in < 1s.
