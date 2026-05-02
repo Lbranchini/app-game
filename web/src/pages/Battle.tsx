@@ -520,7 +520,7 @@ function SideHeader({
         <span className={`inline-block h-2 w-2 rounded-full ${dot}`} />
         {label}
       </div>
-      <EssenceBar pool={essences} />
+      <EssenceBar pool={essences} animated />
     </div>
   );
 }
@@ -528,9 +528,11 @@ function SideHeader({
 function EssenceBar({
   pool,
   large = false,
+  animated = false,
 }: {
   pool: Partial<Record<Essence, number>>;
   large?: boolean;
+  animated?: boolean;
 }) {
   const items = ESSENCE_ORDER.filter((k) => (pool[k] ?? 0) > 0);
   if (items.length === 0) {
@@ -540,15 +542,34 @@ function EssenceBar({
     <div className={`flex items-center gap-2 ${large ? "text-base" : "text-xs"}`}>
       {items.map((k) => {
         const style = ESSENCE_STYLE[k];
-        return (
-          <span
-            key={k}
-            className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 ring-1 ${style.chip}`}
-            title={k}
-          >
+        const count = pool[k]!;
+        const className = `inline-flex items-center gap-1 rounded-full px-2 py-0.5 ring-1 ${style.chip}`;
+        const inner = (
+          <>
             <span className={`inline-block h-2 w-2 rounded-full ${style.dot}`} />
-            <span className="font-mono font-semibold">{pool[k]}</span>
+            <span className="font-mono font-semibold">{count}</span>
             <span className="opacity-70">{style.label}</span>
+          </>
+        );
+        // Re-keying by count makes framer-motion replay the entrance whenever
+        // the server pushes a new pool — reads like "chakra rolled in".
+        if (animated) {
+          return (
+            <motion.span
+              key={`${k}-${count}`}
+              initial={{ scale: 0.4, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ type: "spring", stiffness: 420, damping: 20 }}
+              className={className}
+              title={k}
+            >
+              {inner}
+            </motion.span>
+          );
+        }
+        return (
+          <span key={k} className={className} title={k}>
+            {inner}
           </span>
         );
       })}
