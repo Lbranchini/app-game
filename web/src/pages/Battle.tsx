@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
+import { AnimatePresence, motion } from "framer-motion";
 
 import { api, auth } from "@/api/client";
 import {
@@ -61,6 +62,18 @@ const ESSENCE_STYLE: Record<Essence, { dot: string; chip: string; label: string 
 
 const ESSENCE_ORDER: Essence[] = ["vigor", "spirit", "mind", "blood"];
 
+// Suggested per-turn budget — purely cosmetic until the server enforces a
+// timer. Resets when `state.turn` changes.
+const TURN_TIMER_SECONDS = 60;
+
+interface FloatingNumber {
+  id: number;
+  target: string;
+  value: number;
+  kind: "damage" | "heal";
+  tick?: string;
+}
+
 // --------------------------------------------------------------------------- //
 // Page                                                                        //
 // --------------------------------------------------------------------------- //
@@ -77,7 +90,11 @@ export function BattlePage() {
     skill: Skill;
     paid: Partial<Record<Essence, number>>;
   } | null>(null);
+  const [floats, setFloats] = useState<FloatingNumber[]>([]);
+  const [turnStartedAt, setTurnStartedAt] = useState<number>(() => Date.now());
+  const [now, setNow] = useState<number>(() => Date.now());
   const wsRef = useRef<WebSocket | null>(null);
+  const floatId = useRef(0);
 
   const characters = useQuery({ queryKey: ["characters"], queryFn: api.listCharacters });
   const charById = useMemo(() => {
@@ -86,7 +103,29 @@ export function BattlePage() {
     return map;
   }, [characters.data]);
 
+  const floatsByTarget = useMemo(() => {
+    const map = new Map<string, FloatingNumber[]>();
+    for (const f of floats) {
+      const list = map.get(f.target);
+      if (list) list.push(f);
+      else map.set(f.target, [f]);
+    }
+    return map;
+  }, [floats]);
+
   useEffect(() => () => wsRef.current?.close(), []);
+
+  // 1-second cadence is enough for a smooth-looking timer bar.
+  useEffect(() => {
+    const handle = window.setInterval(() => setNow(Date.now()), 250);
+    return () => window.clearInterval(handle);
+  }, []);
+
+  // Reset the local turn timer whenever the server advances the turn.
+  useEffect(() => {
+    if (!state) return;
+    setTurnStartedAt(Date.now());
+  }, [state?.turn, state?.current_side]);
 
   useEffect(() => {
     if (!params.matchId) return;
@@ -127,6 +166,30 @@ export function BattlePage() {
     }
   };
 
+  const spawnFloats = (incoming: MatchEvent[]) => {
+    const additions: FloatingNumber[] = [];
+    for (const e of incoming) {
+      if (e.kind !== "damage" && e.kind !== "heal") continue;
+      const target = e.details.target;
+      const value = e.details.value;
+      if (typeof target !== "string" || typeof value !== "number" || value <= 0) continue;
+      additions.push({
+        id: ++floatId.current,
+        target,
+        value,
+        kind: e.kind,
+        tick: typeof e.details.tick === "string" ? e.details.tick : undefined,
+      });
+    }
+    if (additions.length === 0) return;
+    setFloats((prev) => [...prev, ...additions]);
+    // Drop floats after the animation finishes so the array doesn't grow.
+    window.setTimeout(() => {
+      const ids = new Set(additions.map((f) => f.id));
+      setFloats((prev) => prev.filter((f) => !ids.has(f.id)));
+    }, 1400);
+  };
+
   const connect = (id: string) => {
     const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
     const token = auth.getToken();
@@ -141,6 +204,7 @@ export function BattlePage() {
         setPending(null);
         if (Array.isArray(frame.events)) {
           setEvents((prev) => [...prev, ...frame.events]);
+          spawnFloats(frame.events as MatchEvent[]);
         }
       } else if (frame.type === "error") {
         setError(frame.detail);
@@ -233,31 +297,52 @@ export function BattlePage() {
     ? targetCandidates(pending.skill, activePlayer, opponent).map((c) => c.id)
     : null;
 
+  const elapsedMs = state.finished ? 0 : Math.max(0, now - turnStartedAt);
+  const timerRatio = state.finished
+    ? 0
+    : Math.max(0, 1 - elapsedMs / (TURN_TIMER_SECONDS * 1000));
+  const secondsLeft = state.finished ? 0 : Math.max(0, Math.ceil(TURN_TIMER_SECONDS - elapsedMs / 1000));
+
   return (
     <div className="mx-auto flex min-h-screen max-w-5xl flex-col gap-4 px-4 py-6">
       {/* HUD ──────────────────────────────────────────────────────────────── */}
-      <header className="flex items-center justify-between rounded-xl bg-slate-900/80 px-5 py-3 shadow ring-1 ring-slate-800">
-        <div className="text-sm text-slate-400">
-          <span className="font-mono text-slate-500">match {matchId?.slice(0, 8)}</span>
-          <span className="mx-2 text-slate-700">·</span>
-          <span>arena {state.arena_id}</span>
-        </div>
-        <div className="text-center">
-          <div className="text-xs uppercase tracking-wider text-slate-500">Turn</div>
-          <div className="text-2xl font-bold tabular-nums">{state.turn}</div>
-        </div>
-        <div className="text-right text-sm">
-          <div className="text-xs uppercase tracking-wider text-slate-500">Acting</div>
-          <div
-            className={
-              state.current_side === "A"
-                ? "font-bold text-emerald-400"
-                : "font-bold text-rose-400"
-            }
-          >
-            Side {state.current_side}
+      <header className="overflow-hidden rounded-xl bg-slate-900/80 shadow ring-1 ring-slate-800">
+        <div className="flex items-center justify-between px-5 py-3">
+          <div className="text-sm text-slate-400">
+            <span className="font-mono text-slate-500">match {matchId?.slice(0, 8)}</span>
+            <span className="mx-2 text-slate-700">·</span>
+            <span>arena {state.arena_id}</span>
+          </div>
+          <div className="text-center">
+            <div className="text-xs uppercase tracking-wider text-slate-500">Turn</div>
+            <div className="text-2xl font-bold tabular-nums">{state.turn}</div>
+          </div>
+          <div className="text-right text-sm">
+            <div className="text-xs uppercase tracking-wider text-slate-500">
+              Acting · {secondsLeft}s
+            </div>
+            <div
+              className={
+                state.current_side === "A"
+                  ? "font-bold text-emerald-400"
+                  : "font-bold text-rose-400"
+              }
+            >
+              Side {state.current_side}
+            </div>
           </div>
         </div>
+        {!state.finished && (
+          <div className="h-1 bg-slate-800">
+            <div
+              className={[
+                "h-full transition-[width] duration-200 ease-linear",
+                timerRatio > 0.5 ? "bg-emerald-500" : timerRatio > 0.2 ? "bg-amber-400" : "bg-red-500",
+              ].join(" ")}
+              style={{ width: `${timerRatio * 100}%` }}
+            />
+          </div>
+        )}
       </header>
 
       {/* OPPONENT (top) ──────────────────────────────────────────────────── */}
@@ -278,6 +363,7 @@ export function BattlePage() {
               isOpponent
               clickable={pending?.skill.target === "single_enemy"}
               highlighted={validTargetIds?.includes(c.id) ?? false}
+              floats={floatsByTarget.get(c.id) ?? []}
               onClick={() => onTargetClick(c.id)}
             />
           ))}
@@ -313,6 +399,7 @@ export function BattlePage() {
               clickable={pending?.skill.target === "single_ally"}
               highlighted={validTargetIds?.includes(c.id) ?? false}
               queued={charactersAlreadyActing.has(c.id)}
+              floats={floatsByTarget.get(c.id) ?? []}
               onClick={() => onTargetClick(c.id)}
             />
           ))}
@@ -475,6 +562,7 @@ function CharacterPortrait({
   clickable = false,
   highlighted = false,
   queued = false,
+  floats = [],
   onClick,
 }: {
   character: CharacterState;
@@ -482,6 +570,7 @@ function CharacterPortrait({
   clickable?: boolean;
   highlighted?: boolean;
   queued?: boolean;
+  floats?: FloatingNumber[];
   onClick?: () => void;
 }) {
   const dead = character.hp <= 0;
@@ -499,12 +588,13 @@ function CharacterPortrait({
       role={interactive ? "button" : undefined}
       onClick={handle}
       className={[
-        "relative overflow-hidden rounded-lg p-3 ring-1 transition",
+        "relative rounded-lg p-3 ring-1 transition",
         dead ? "bg-slate-950/60 ring-slate-900 opacity-50" : "bg-slate-800 ring-slate-700",
         interactive ? "cursor-pointer ring-amber-400 ring-2 hover:bg-slate-700" : "",
         queued ? "ring-emerald-500/70 ring-2" : "",
       ].join(" ")}
     >
+      <FloatingNumbers items={floats} />
       <div className="flex items-center gap-3">
         <div
           className={[
@@ -682,6 +772,36 @@ function ActionQueue({
         );
       })}
     </ol>
+  );
+}
+
+function FloatingNumbers({ items }: { items: FloatingNumber[] }) {
+  return (
+    <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex justify-center">
+      <AnimatePresence>
+        {items.map((f) => (
+          <motion.span
+            key={f.id}
+            initial={{ y: 0, opacity: 0, scale: 0.7 }}
+            animate={{ y: -36, opacity: 1, scale: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 1.2, ease: "easeOut" }}
+            className={[
+              "absolute select-none text-lg font-extrabold drop-shadow",
+              f.kind === "damage" ? "text-red-400" : "text-emerald-300",
+            ].join(" ")}
+          >
+            {f.kind === "damage" ? "-" : "+"}
+            {f.value}
+            {f.tick && (
+              <span className="ml-1 align-middle text-[10px] uppercase opacity-80">
+                {f.tick}
+              </span>
+            )}
+          </motion.span>
+        ))}
+      </AnimatePresence>
+    </div>
   );
 }
 
