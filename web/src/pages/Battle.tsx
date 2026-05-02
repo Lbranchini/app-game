@@ -142,6 +142,10 @@ export function BattlePage() {
   const [now, setNow] = useState<number>(() => Date.now());
   const [splashFor, setSplashFor] = useState<string | null>(null);
   const [wsStatus, setWsStatus] = useState<"connecting" | "open" | "closed">("connecting");
+  const [opponentOffline, setOpponentOffline] = useState<{
+    playerId: string;
+    forfeitDeadlineMs: number;
+  } | null>(null);
   const [muted, setMuted] = useState<boolean>(() =>
     typeof window === "undefined" ? false : window.localStorage.getItem(MUTE_KEY) === "1",
   );
@@ -319,6 +323,17 @@ export function BattlePage() {
           }
           spawnFloats(events);
         }
+      } else if (frame.type === "presence") {
+        // Opponent dropped or recovered. The server is the source of truth
+        // for the forfeit clock; we just mirror the deadline locally.
+        if (frame.status === "disconnected" && typeof frame.forfeit_deadline === "string") {
+          setOpponentOffline({
+            playerId: String(frame.player_id ?? ""),
+            forfeitDeadlineMs: Date.parse(frame.forfeit_deadline),
+          });
+        } else if (frame.status === "reconnected") {
+          setOpponentOffline(null);
+        }
       } else if (frame.type === "error") {
         setError(frame.detail);
       }
@@ -427,6 +442,13 @@ export function BattlePage() {
   const timerRatio = deadlineMs === null ? 0 : Math.max(0, Math.min(1, remainingMs / totalMs));
   const secondsLeft = Math.ceil(remainingMs / 1000);
 
+  // Drop the offline banner when the match ends — the server will have
+  // already broadcast the final state frame.
+  const offlineBanner = state.finished ? null : opponentOffline;
+  const offlineSecondsLeft = offlineBanner
+    ? Math.max(0, Math.ceil((offlineBanner.forfeitDeadlineMs - now) / 1000))
+    : 0;
+
   return (
     <div className="mx-auto flex min-h-screen max-w-5xl flex-col gap-4 px-4 py-6">
       <VsSplash
@@ -434,6 +456,15 @@ export function BattlePage() {
         teamA={state.a.characters}
         teamB={state.b.characters}
       />
+
+      {offlineBanner && (
+        <div className="flex items-center justify-between rounded-xl bg-amber-500/10 px-4 py-3 text-sm text-amber-200 ring-1 ring-amber-500/40">
+          <span>
+            Opponent disconnected — auto-forfeit in{" "}
+            <span className="font-mono font-bold text-amber-100">{offlineSecondsLeft}s</span>
+          </span>
+        </div>
+      )}
 
       {/* HUD ──────────────────────────────────────────────────────────────── */}
       <header className="overflow-hidden rounded-xl bg-slate-900/80 shadow ring-1 ring-slate-800">

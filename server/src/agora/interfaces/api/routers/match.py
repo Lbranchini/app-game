@@ -151,7 +151,9 @@ async def match_ws(
     side_a_id, side_b_id = participants
     # Dev matches use synthetic player ids; tokens not required for them so
     # the existing dev flow keeps working. Real matches require a participant
-    # token.
+    # token, and the player_id flows down to the runtime so disconnects can
+    # start a forfeit clock.
+    player_id: str | None = None
     if not _is_dev_match(side_a_id, side_b_id):
         try:
             user = authenticate_ws_token(token)
@@ -161,9 +163,10 @@ async def match_ws(
         if user.sub not in (side_a_id, side_b_id):
             await websocket.close(code=4403, reason="not a participant")
             return
+        player_id = user.sub
 
     await websocket.accept()
-    await runtime.attach(match_id, websocket)
+    await runtime.attach(match_id, websocket, player_id=player_id)
     state = runtime.get(match_id)
     await websocket.send_json({"type": "state", "state": state.model_dump(mode="json")})
 
@@ -175,7 +178,7 @@ async def match_ws(
                 continue
             try:
                 actions = [Action.model_validate(a) for a in frame.get("actions", [])]
-            except Exception as exc:  # noqa: BLE001 — validation surfaces as ws error
+            except Exception as exc:
                 await websocket.send_json({"type": "error", "detail": f"bad action: {exc}"})
                 continue
 
@@ -183,7 +186,7 @@ async def match_ws(
             # fans the new state out to every attached socket itself.
             await runtime.submit_actions(match_id, actions)
     except WebSocketDisconnect:
-        runtime.detach(match_id, websocket)
-    except Exception:  # noqa: BLE001
-        runtime.detach(match_id, websocket)
+        await runtime.detach(match_id, websocket)
+    except Exception:
+        await runtime.detach(match_id, websocket)
         raise

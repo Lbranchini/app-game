@@ -45,6 +45,10 @@ logger = logging.getLogger(__name__)
 # turn with whatever (potentially empty) action set is queued.
 TURN_DURATION = timedelta(seconds=60)
 
+# How long a participant has to reconnect before they forfeit the match.
+# Skipped entirely for dev matches (synthetic player ids).
+DISCONNECT_GRACE = timedelta(seconds=30)
+
 
 @dataclass
 class _MatchSession:
@@ -56,7 +60,10 @@ class _MatchSession:
     team_a: list[str]
     team_b: list[str]
     started_at: datetime
-    sockets: list[WebSocket] = field(default_factory=list)
+    # `sockets` pairs each connected websocket with the player_id that owns
+    # it, so we can tell when the *last* socket for a player closes (vs. a
+    # spectator/refresh) and decide whether to start the forfeit grace.
+    sockets: list[tuple[str, WebSocket]] = field(default_factory=list)
     lock: asyncio.Lock = field(default_factory=asyncio.Lock)
     persisted: bool = False
     # Full per-match event log so the post-match telemetry has the whole
@@ -64,6 +71,11 @@ class _MatchSession:
     event_log: list[Event] = field(default_factory=list)
     # Background task that fires when the active turn's deadline expires.
     deadline_task: asyncio.Task[None] | None = None
+    # Player-id → instant the player went fully offline. Cleared when any
+    # of their sockets re-attaches.
+    disconnected_since: dict[str, datetime] = field(default_factory=dict)
+    # Per-player forfeit watchers. Cancelled on reconnect.
+    forfeit_tasks: dict[str, asyncio.Task[None]] = field(default_factory=dict)
 
 
 class MatchRuntime:
@@ -205,20 +217,54 @@ class MatchRuntime:
             raise KeyError(match_id)
         return self._sessions[match_id].state
 
-    async def attach(self, match_id: str, ws: WebSocket) -> None:
+    async def attach(self, match_id: str, ws: WebSocket, player_id: str | None = None) -> None:
+        """Register a websocket for a match.
+
+        `player_id` is required for real matches so disconnect tracking can
+        scope correctly. Dev matches pass None and skip forfeit handling.
+        """
         session = self._sessions.get(match_id)
         if session is None:
             raise KeyError(match_id)
-        session.sockets.append(ws)
+        # Default to the side label so dev matches still get a non-empty key
+        # without entangling them with the forfeit logic below.
+        owner = player_id or "_anon"
+        session.sockets.append((owner, ws))
+        # If this player was on the forfeit clock, cancel and broadcast.
+        if player_id is not None and player_id in session.disconnected_since:
+            session.disconnected_since.pop(player_id, None)
+            task = session.forfeit_tasks.pop(player_id, None)
+            if task and not task.done():
+                task.cancel()
+            await self._broadcast_presence(match_id, player_id, "reconnected")
         # First attach lazily arms the deadline watcher.
         await self._ensure_deadline_watcher(match_id)
 
-    def detach(self, match_id: str, ws: WebSocket) -> None:
+    async def detach(self, match_id: str, ws: WebSocket) -> None:
         session = self._sessions.get(match_id)
         if session is None:
             return
-        if ws in session.sockets:
-            session.sockets.remove(ws)
+        # Find the (owner, ws) pair and remove it.
+        owner: str | None = None
+        for entry in list(session.sockets):
+            if entry[1] is ws:
+                owner = entry[0]
+                session.sockets.remove(entry)
+                break
+        if owner is None or owner == "_anon":
+            return
+        # If this player still has another live socket open, no grace yet.
+        if any(o == owner for o, _ in session.sockets):
+            return
+        # Don't start a forfeit clock for a finished match.
+        if session.state.finished:
+            return
+        # Last socket for this player went away — start the grace timer.
+        deadline = datetime.utcnow() + DISCONNECT_GRACE
+        session.disconnected_since[owner] = datetime.utcnow()
+        task = asyncio.create_task(self._watch_forfeit(match_id, owner, deadline))
+        session.forfeit_tasks[owner] = task
+        await self._broadcast_presence(match_id, owner, "disconnected", deadline=deadline)
 
     async def submit_actions(
         self,
@@ -270,7 +316,7 @@ class MatchRuntime:
             try:
                 await ws.send_json(payload)
             except Exception:
-                self.detach(match_id, ws)
+                await self.detach(match_id, ws)
 
     async def _ensure_deadline_watcher(self, match_id: str) -> None:
         session = self._sessions.get(match_id)
@@ -329,6 +375,87 @@ class MatchRuntime:
             )
         except Exception:
             logger.exception("auto-resolve failed for match %s", match_id)
+
+    # ------------------------------------------------------------------ #
+    # Disconnect / forfeit                                               #
+    # ------------------------------------------------------------------ #
+
+    async def _watch_forfeit(self, match_id: str, player_id: str, deadline: datetime) -> None:
+        """Sleep until `deadline`, then forfeit `player_id` if still offline."""
+        try:
+            wait = (deadline - datetime.utcnow()).total_seconds()
+            if wait > 0:
+                await asyncio.sleep(wait)
+            await self._forfeit_if_still_disconnected(match_id, player_id, deadline)
+        except asyncio.CancelledError:
+            return
+
+    async def _forfeit_if_still_disconnected(
+        self, match_id: str, player_id: str, expected_since: datetime
+    ) -> None:
+        session = self._sessions.get(match_id)
+        if session is None:
+            return
+        try:
+            new_state: MatchState | None = None
+            async with session.lock:
+                if session.state.finished:
+                    return
+                # Reconnected during the wait — `disconnected_since` was cleared.
+                still_off = session.disconnected_since.get(player_id)
+                if still_off is None or still_off > expected_since:
+                    return
+                # Forfeit: the *other* side wins.
+                from agora.domain.enums import Side
+
+                winner = (
+                    Side.B if player_id == session.side_a_player_id else Side.A
+                )
+                session.state.finished = True
+                session.state.winner = winner
+                session.state.turn_deadline = None
+                # Cancel any pending deadline watcher; the match is over.
+                if session.deadline_task and not session.deadline_task.done():
+                    session.deadline_task.cancel()
+                    session.deadline_task = None
+                # Synthetic event so the post-match summary can flag this.
+                forfeit_event = Event(
+                    kind="forfeit",
+                    details={"player_id": player_id, "winner": winner.value},
+                )
+                session.event_log.append(forfeit_event)
+                self._maybe_persist(match_id, session)
+                new_state = session.state
+            if new_state is not None:
+                winner_value = new_state.winner.value if new_state.winner else None
+                forfeit_payload = {
+                    "kind": "forfeit",
+                    "details": {"player_id": player_id, "winner": winner_value},
+                }
+                await self._broadcast(match_id, new_state, [forfeit_payload])
+        except Exception:
+            logger.exception("forfeit failed for match %s", match_id)
+
+    async def _broadcast_presence(
+        self,
+        match_id: str,
+        player_id: str,
+        kind: str,  # "disconnected" | "reconnected"
+        *,
+        deadline: datetime | None = None,
+    ) -> None:
+        payload: dict[str, object] = {
+            "type": "presence",
+            "player_id": player_id,
+            "status": kind,
+        }
+        if deadline is not None:
+            payload["forfeit_deadline"] = deadline.isoformat()
+        for ws in self.sockets_for(match_id):
+            try:
+                await ws.send_json(payload)
+            except Exception:
+                continue
 
     def _maybe_persist(self, match_id: str, session: _MatchSession) -> None:
         """Save a `MatchRecord` and update ELO + counters + unlocks exactly once."""
@@ -396,7 +523,9 @@ class MatchRuntime:
 
     def sockets_for(self, match_id: str) -> list[WebSocket]:
         session = self._sessions.get(match_id)
-        return list(session.sockets) if session else []
+        if session is None:
+            return []
+        return [ws for _, ws in session.sockets]
 
     # --------------------------------------------------------------------- #
     # Lookup helpers used by route auth                                     #

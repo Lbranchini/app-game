@@ -19,6 +19,8 @@ EventKind = Literal[
     "turn_ended",
     "match_finished",
     "invalid_action",
+    # Emitted by `MatchRuntime` when a player's reconnect grace expires.
+    "forfeit",
 ]
 
 
