@@ -475,9 +475,7 @@ export function BattlePage() {
       )}
 
       {state.finished && (
-        <p className="rounded-xl bg-slate-900/80 px-5 py-4 text-lg font-semibold ring-1 ring-slate-800">
-          Match finished — winner: {state.winner ?? "draw"}
-        </p>
+        <MatchSummaryCard state={state} events={events} onRematch={startMatch} />
       )}
 
       {/* EVENT LOG ──────────────────────────────────────────────────────── */}
@@ -812,6 +810,155 @@ function ActionQueue({
   );
 }
 
+function MatchSummaryCard({
+  state,
+  events,
+  onRematch,
+}: {
+  state: MatchState;
+  events: MatchEvent[];
+  onRematch: () => void;
+}) {
+  const teamA = state.a.characters.map((c) => c.id);
+  const teamB = state.b.characters.map((c) => c.id);
+  const aSet = new Set(teamA);
+  const bSet = new Set(teamB);
+
+  const stats = computePerCharacterStats(events, aSet, bSet);
+  const totalsA = aggregate(stats, teamA);
+  const totalsB = aggregate(stats, teamB);
+  const kosA = state.a.characters.filter((c) => c.hp <= 0).length;
+  const kosB = state.b.characters.filter((c) => c.hp <= 0).length;
+
+  const winner = state.winner;
+  const banner =
+    winner === null
+      ? { label: "Draw", tone: "from-slate-600 to-slate-800", text: "text-slate-100" }
+      : winner === "A"
+        ? { label: "Side A wins", tone: "from-emerald-600 to-emerald-800", text: "text-emerald-50" }
+        : { label: "Side B wins", tone: "from-rose-600 to-rose-800", text: "text-rose-50" };
+
+  return (
+    <motion.section
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3 }}
+      className="overflow-hidden rounded-xl bg-slate-900/90 ring-1 ring-slate-800"
+    >
+      <div
+        className={`bg-gradient-to-r ${banner.tone} px-6 py-5 text-center ${banner.text}`}
+      >
+        <div className="text-xs uppercase tracking-[0.3em] opacity-80">Match finished</div>
+        <div className="mt-1 text-3xl font-bold">{banner.label}</div>
+      </div>
+
+      <div className="grid gap-4 p-5 md:grid-cols-2">
+        <SummarySide
+          title="Side A"
+          totals={totalsA}
+          kos={kosA}
+          isWinner={winner === "A"}
+          characters={state.a.characters}
+          stats={stats}
+          tone="emerald"
+        />
+        <SummarySide
+          title="Side B"
+          totals={totalsB}
+          kos={kosB}
+          isWinner={winner === "B"}
+          characters={state.b.characters}
+          stats={stats}
+          tone="rose"
+        />
+      </div>
+
+      <div className="flex justify-end gap-3 border-t border-slate-800 px-5 py-3">
+        <button
+          type="button"
+          onClick={onRematch}
+          className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium hover:bg-emerald-500"
+        >
+          Start new match
+        </button>
+      </div>
+    </motion.section>
+  );
+}
+
+function SummarySide({
+  title,
+  totals,
+  kos,
+  isWinner,
+  characters,
+  stats,
+  tone,
+}: {
+  title: string;
+  totals: { dealt: number; taken: number; healed: number };
+  kos: number;
+  isWinner: boolean;
+  characters: CharacterState[];
+  stats: Map<string, { dealt: number; taken: number; healed: number }>;
+  tone: "emerald" | "rose";
+}) {
+  const accent = tone === "emerald" ? "text-emerald-400" : "text-rose-400";
+  return (
+    <div className="rounded-lg bg-slate-950/40 p-4 ring-1 ring-slate-800">
+      <div className="mb-3 flex items-baseline justify-between">
+        <h3 className={`text-sm font-bold uppercase tracking-wider ${accent}`}>
+          {title}
+          {isWinner && (
+            <span className="ml-2 rounded bg-amber-500/20 px-1.5 py-0.5 text-[10px] text-amber-300 ring-1 ring-amber-500/40">
+              winner
+            </span>
+          )}
+        </h3>
+        <span className="text-xs text-slate-500">{kos} KO</span>
+      </div>
+      <dl className="grid grid-cols-3 gap-2 text-center text-xs">
+        <Stat label="dmg dealt" value={totals.dealt} />
+        <Stat label="dmg taken" value={totals.taken} />
+        <Stat label="healing" value={totals.healed} />
+      </dl>
+      <ul className="mt-4 space-y-1.5">
+        {characters.map((c) => {
+          const s = stats.get(c.id) ?? { dealt: 0, taken: 0, healed: 0 };
+          const dead = c.hp <= 0;
+          return (
+            <li
+              key={c.id}
+              className={`flex items-center justify-between rounded bg-slate-900/60 px-2 py-1.5 text-xs ${
+                dead ? "opacity-50" : ""
+              }`}
+            >
+              <span className="font-medium">
+                {c.name}
+                {dead && <span className="ml-2 text-[10px] text-red-400">KO</span>}
+              </span>
+              <span className="flex items-center gap-3 font-mono text-slate-400">
+                <span title="damage dealt">{s.dealt}d</span>
+                <span title="damage taken">{s.taken}t</span>
+                <span title="healing done">{s.healed}h</span>
+              </span>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
+
+function Stat({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="rounded bg-slate-900 px-2 py-1.5 ring-1 ring-slate-800">
+      <div className="font-mono text-base font-bold tabular-nums text-slate-100">{value}</div>
+      <div className="text-[10px] uppercase tracking-wider text-slate-500">{label}</div>
+    </div>
+  );
+}
+
 function FloatingNumbers({ items }: { items: FloatingNumber[] }) {
   return (
     <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex justify-center">
@@ -861,4 +1008,57 @@ function describeSkill(skill: Skill): string {
     .map(([k, v]) => `${v}${k[0]}`)
     .join("+") || "free";
   return `${skill.name} · ${cost} · CD ${skill.cooldown} · ${skill.target}`;
+}
+
+interface CharStats {
+  dealt: number;
+  taken: number;
+  healed: number;
+}
+
+// Same shape as the server's summarize_events: only credit damage/heal to a
+// character if the source resolves to a real player character (filters out
+// "poison", "arena", "drained_status", etc.).
+function computePerCharacterStats(
+  events: MatchEvent[],
+  aSet: Set<string>,
+  bSet: Set<string>,
+): Map<string, CharStats> {
+  const out = new Map<string, CharStats>();
+  const bump = (id: string, key: keyof CharStats, value: number) => {
+    let row = out.get(id);
+    if (!row) {
+      row = { dealt: 0, taken: 0, healed: 0 };
+      out.set(id, row);
+    }
+    row[key] += value;
+  };
+  const isCharacter = (s: unknown): s is string =>
+    typeof s === "string" && (aSet.has(s) || bSet.has(s));
+
+  for (const e of events) {
+    const value = e.details.value;
+    if (typeof value !== "number" || value <= 0) continue;
+    const source = e.details.source;
+    const target = e.details.target;
+    if (e.kind === "damage") {
+      if (isCharacter(source)) bump(source, "dealt", value);
+      if (isCharacter(target)) bump(target, "taken", value);
+    } else if (e.kind === "heal") {
+      if (isCharacter(source)) bump(source, "healed", value);
+    }
+  }
+  return out;
+}
+
+function aggregate(stats: Map<string, CharStats>, ids: string[]): CharStats {
+  const total: CharStats = { dealt: 0, taken: 0, healed: 0 };
+  for (const id of ids) {
+    const row = stats.get(id);
+    if (!row) continue;
+    total.dealt += row.dealt;
+    total.taken += row.taken;
+    total.healed += row.healed;
+  }
+  return total;
 }
