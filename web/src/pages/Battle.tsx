@@ -51,6 +51,16 @@ interface MatchEvent {
 const DEMO_TEAM_A = ["achilles", "athena", "anubis"];
 const DEMO_TEAM_B = ["thor", "isis", "loki"];
 
+const ESSENCE_STYLE: Record<Essence, { dot: string; chip: string; label: string }> = {
+  vigor:   { dot: "bg-red-500",    chip: "bg-red-500/20 text-red-300 ring-red-500/40",       label: "VIG" },
+  spirit:  { dot: "bg-amber-400",  chip: "bg-amber-400/20 text-amber-200 ring-amber-400/40", label: "SPI" },
+  mind:    { dot: "bg-sky-400",    chip: "bg-sky-400/20 text-sky-200 ring-sky-400/40",       label: "MND" },
+  blood:   { dot: "bg-fuchsia-500", chip: "bg-fuchsia-500/20 text-fuchsia-200 ring-fuchsia-500/40", label: "BLD" },
+  generic: { dot: "bg-slate-400",  chip: "bg-slate-400/20 text-slate-200 ring-slate-400/40", label: "GEN" },
+};
+
+const ESSENCE_ORDER: Essence[] = ["vigor", "spirit", "mind", "blood"];
+
 // --------------------------------------------------------------------------- //
 // Page                                                                        //
 // --------------------------------------------------------------------------- //
@@ -168,10 +178,11 @@ export function BattlePage() {
     );
   }
 
+  // The bottom team is always the one whose turn it is — gives the player
+  // the "I command this side" framing that arena games use.
   const activePlayer = state.current_side === "A" ? state.a : state.b;
   const opponent = state.current_side === "A" ? state.b : state.a;
 
-  // The pool the operator sees already accounts for what's been queued.
   const remainingPool = queue.reduce(
     (pool, action) => subtractPayment(pool, action.paid),
     activePlayer.essences,
@@ -186,7 +197,7 @@ export function BattlePage() {
 
   const onSkillClick = (character: CharacterState, skill: Skill) => {
     const paid = computePayment(skill.cost, remainingPool);
-    if (paid === null) return; // shouldn't happen because button is disabled
+    if (paid === null) return;
     if (skill.target === "self") {
       enqueue({
         character_id: character.id,
@@ -218,63 +229,151 @@ export function BattlePage() {
     });
   };
 
+  const validTargetIds = pending
+    ? targetCandidates(pending.skill, activePlayer, opponent).map((c) => c.id)
+    : null;
+
   return (
-    <div className="p-8">
-      <header className="mb-6 flex items-baseline justify-between">
-        <h2 className="text-2xl font-bold">Match {matchId?.slice(0, 8)}…</h2>
-        <span className="text-sm text-slate-400">
-          Turn {state.turn} • Active: side {state.current_side} • Arena: {state.arena_id}
-        </span>
+    <div className="mx-auto flex min-h-screen max-w-5xl flex-col gap-4 px-4 py-6">
+      {/* HUD ──────────────────────────────────────────────────────────────── */}
+      <header className="flex items-center justify-between rounded-xl bg-slate-900/80 px-5 py-3 shadow ring-1 ring-slate-800">
+        <div className="text-sm text-slate-400">
+          <span className="font-mono text-slate-500">match {matchId?.slice(0, 8)}</span>
+          <span className="mx-2 text-slate-700">·</span>
+          <span>arena {state.arena_id}</span>
+        </div>
+        <div className="text-center">
+          <div className="text-xs uppercase tracking-wider text-slate-500">Turn</div>
+          <div className="text-2xl font-bold tabular-nums">{state.turn}</div>
+        </div>
+        <div className="text-right text-sm">
+          <div className="text-xs uppercase tracking-wider text-slate-500">Acting</div>
+          <div
+            className={
+              state.current_side === "A"
+                ? "font-bold text-emerald-400"
+                : "font-bold text-rose-400"
+            }
+          >
+            Side {state.current_side}
+          </div>
+        </div>
       </header>
 
-      <div className="grid gap-6 md:grid-cols-2">
-        <Team title="Side A" player={state.a} />
-        <Team title="Side B" player={state.b} />
-      </div>
+      {/* OPPONENT (top) ──────────────────────────────────────────────────── */}
+      <section
+        aria-label="Opponent team"
+        className="rounded-xl bg-gradient-to-b from-slate-900/80 to-slate-900/30 p-4 ring-1 ring-slate-800"
+      >
+        <SideHeader
+          label={`Opponent · Side ${opponent.side}`}
+          essences={opponent.essences}
+          tone="rose"
+        />
+        <div className="mt-3 grid grid-cols-3 gap-3">
+          {opponent.characters.map((c) => (
+            <CharacterPortrait
+              key={c.id}
+              character={c}
+              isOpponent
+              clickable={pending?.skill.target === "single_enemy"}
+              highlighted={validTargetIds?.includes(c.id) ?? false}
+              onClick={() => onTargetClick(c.id)}
+            />
+          ))}
+        </div>
+      </section>
 
-      {!state.finished && (
-        <div className="mt-8 rounded-xl bg-slate-800 p-5">
-          <div className="mb-3 flex items-baseline justify-between">
-            <h3 className="text-lg font-semibold">Plan turn — side {state.current_side}</h3>
-            <span className="text-xs text-slate-400">
-              Pool after queue:{" "}
-              {Object.entries(remainingPool)
-                .filter(([, v]) => (v ?? 0) > 0)
-                .map(([k, v]) => `${k.slice(0, 3)}=${v}`)
-                .join(" · ") || "—"}
-            </span>
+      {/* CENTER BAND — chakra/essence pool ──────────────────────────────── */}
+      <section className="flex items-center justify-between rounded-xl bg-slate-900/80 px-5 py-3 shadow-inner ring-1 ring-slate-800">
+        <span className="text-xs uppercase tracking-wider text-slate-500">Essence pool</span>
+        <EssenceBar pool={remainingPool} large />
+        <span className="text-xs text-slate-500">
+          {queue.length === 0
+            ? "no actions queued"
+            : `${queue.length}/3 queued`}
+        </span>
+      </section>
+
+      {/* PLAYER (bottom) ─────────────────────────────────────────────────── */}
+      <section
+        aria-label="Your team"
+        className="rounded-xl bg-gradient-to-t from-slate-900/80 to-slate-900/30 p-4 ring-1 ring-slate-800"
+      >
+        <SideHeader
+          label={`You · Side ${activePlayer.side}`}
+          essences={activePlayer.essences}
+          tone="emerald"
+        />
+        <div className="mt-3 grid grid-cols-3 gap-3">
+          {activePlayer.characters.map((c) => (
+            <CharacterPortrait
+              key={c.id}
+              character={c}
+              clickable={pending?.skill.target === "single_ally"}
+              highlighted={validTargetIds?.includes(c.id) ?? false}
+              queued={charactersAlreadyActing.has(c.id)}
+              onClick={() => onTargetClick(c.id)}
+            />
+          ))}
+        </div>
+
+        {/* Skill rows aligned under each character ──────────────────────── */}
+        {!state.finished && (
+          <div className="mt-4 grid grid-cols-3 gap-3">
+            {activePlayer.characters.map((character) => {
+              const def = charById.get(character.id);
+              const stunned = character.statuses.some((s) => s.name === "stun");
+              const acting = charactersAlreadyActing.has(character.id);
+              const dead = character.hp <= 0;
+              return (
+                <SkillStack
+                  key={character.id}
+                  character={character}
+                  def={def}
+                  disabledReason={
+                    dead ? "down" : stunned ? "stunned" : acting ? "queued" : null
+                  }
+                  remainingPool={remainingPool}
+                  onSkillClick={onSkillClick}
+                />
+              );
+            })}
           </div>
+        )}
+      </section>
 
-          {pending ? (
-            <TargetPicker
-              skill={pending.skill}
-              opponent={opponent}
-              active={activePlayer}
-              onPick={onTargetClick}
-              onCancel={() => setPending(null)}
-            />
-          ) : (
-            <SkillBoard
-              activePlayer={activePlayer}
-              charById={charById}
-              charactersAlreadyActing={charactersAlreadyActing}
-              remainingPool={remainingPool}
-              onSkillClick={onSkillClick}
-            />
-          )}
+      {/* TARGET PROMPT ───────────────────────────────────────────────────── */}
+      {pending && (
+        <div className="rounded-xl bg-amber-500/10 px-4 py-3 text-sm text-amber-200 ring-1 ring-amber-500/40">
+          Pick a target for{" "}
+          <span className="font-semibold">{pending.skill.name}</span> — click a glowing portrait above.
+          <button
+            type="button"
+            onClick={() => setPending(null)}
+            className="ml-3 rounded border border-amber-500/40 px-2 py-0.5 text-xs hover:bg-amber-500/20"
+          >
+            cancel
+          </button>
+        </div>
+      )}
 
+      {/* ACTION QUEUE ────────────────────────────────────────────────────── */}
+      {!state.finished && (
+        <section className="rounded-xl bg-slate-900/80 p-4 ring-1 ring-slate-800">
           <ActionQueue
             queue={queue}
+            charById={charById}
             onRemove={(idx) => setQueue((prev) => prev.filter((_, i) => i !== idx))}
           />
-
-          <div className="mt-4 flex gap-3">
+          <div className="mt-3 flex gap-3">
             <button
               type="button"
               onClick={submitTurn}
-              className="rounded-md bg-blue-600 px-4 py-2 font-medium hover:bg-blue-500"
+              disabled={queue.length === 0}
+              className="rounded-md bg-blue-600 px-5 py-2 font-medium hover:bg-blue-500 disabled:opacity-40"
             >
-              Confirm turn ({queue.length})
+              Confirm turn
             </button>
             <button
               type="button"
@@ -285,28 +384,31 @@ export function BattlePage() {
               Clear queue
             </button>
           </div>
-        </div>
+        </section>
       )}
 
       {state.finished && (
-        <p className="mt-6 text-lg font-semibold">
+        <p className="rounded-xl bg-slate-900/80 px-5 py-4 text-lg font-semibold ring-1 ring-slate-800">
           Match finished — winner: {state.winner ?? "draw"}
         </p>
       )}
 
-      <div className="mt-8">
-        <h3 className="mb-2 text-sm font-semibold uppercase text-slate-400">Event log</h3>
-        <ul className="max-h-60 space-y-1 overflow-y-auto rounded-md bg-slate-900 p-3 text-xs font-mono">
-          {events.slice(-30).map((e, i) => (
+      {/* EVENT LOG ──────────────────────────────────────────────────────── */}
+      <details className="rounded-xl bg-slate-900/80 px-4 py-3 text-sm ring-1 ring-slate-800">
+        <summary className="cursor-pointer text-xs font-semibold uppercase text-slate-400">
+          Event log ({events.length})
+        </summary>
+        <ul className="mt-2 max-h-60 space-y-1 overflow-y-auto rounded-md bg-slate-950 p-3 text-xs font-mono">
+          {events.slice(-50).map((e, i) => (
             <li key={i}>
               <span className="text-emerald-400">{e.kind}</span>{" "}
               <span className="text-slate-500">{JSON.stringify(e.details)}</span>
             </li>
           ))}
         </ul>
-      </div>
+      </details>
 
-      {error && <p className="mt-4 text-sm text-red-400">{error}</p>}
+      {error && <p className="text-sm text-red-400">{error}</p>}
     </div>
   );
 }
@@ -315,180 +417,291 @@ export function BattlePage() {
 // Sub-components                                                              //
 // --------------------------------------------------------------------------- //
 
-function Team({ title, player }: { title: string; player: PlayerState }) {
+function SideHeader({
+  label,
+  essences,
+  tone,
+}: {
+  label: string;
+  essences: Partial<Record<Essence, number>>;
+  tone: "emerald" | "rose";
+}) {
+  const dot = tone === "emerald" ? "bg-emerald-400" : "bg-rose-400";
   return (
-    <div className="rounded-xl bg-slate-800 p-5">
-      <h3 className="mb-3 text-lg font-bold">{title}</h3>
-      <ul className="space-y-2">
-        {player.characters.map((c) => (
-          <li key={c.id} className="rounded bg-slate-900 p-3">
-            <div className="flex justify-between text-sm">
-              <span className="font-medium">{c.name}</span>
-              <span className={c.hp <= 0 ? "text-red-500" : "text-slate-300"}>
-                {c.hp}/{c.hp_max}
-                {c.shield > 0 && <span className="ml-1 text-cyan-400">+{c.shield}</span>}
-              </span>
-            </div>
-            {c.statuses.length > 0 && (
-              <p className="mt-1 text-xs text-slate-500">
-                {c.statuses.map((s) => `${s.name}(${s.duration})`).join(" · ")}
-              </p>
-            )}
-          </li>
-        ))}
-      </ul>
-      <p className="mt-3 text-xs text-slate-500">
-        Essences:{" "}
-        {Object.entries(player.essences)
-          .filter(([, v]) => (v ?? 0) > 0)
-          .map(([k, v]) => `${k.slice(0, 3)}=${v}`)
-          .join(", ") || "—"}
-      </p>
+    <div className="flex items-center justify-between">
+      <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-slate-400">
+        <span className={`inline-block h-2 w-2 rounded-full ${dot}`} />
+        {label}
+      </div>
+      <EssenceBar pool={essences} />
     </div>
   );
 }
 
-function SkillBoard({
-  activePlayer,
-  charById,
-  charactersAlreadyActing,
+function EssenceBar({
+  pool,
+  large = false,
+}: {
+  pool: Partial<Record<Essence, number>>;
+  large?: boolean;
+}) {
+  const items = ESSENCE_ORDER.filter((k) => (pool[k] ?? 0) > 0);
+  if (items.length === 0) {
+    return <span className="text-xs italic text-slate-600">empty</span>;
+  }
+  return (
+    <div className={`flex items-center gap-2 ${large ? "text-base" : "text-xs"}`}>
+      {items.map((k) => {
+        const style = ESSENCE_STYLE[k];
+        return (
+          <span
+            key={k}
+            className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 ring-1 ${style.chip}`}
+            title={k}
+          >
+            <span className={`inline-block h-2 w-2 rounded-full ${style.dot}`} />
+            <span className="font-mono font-semibold">{pool[k]}</span>
+            <span className="opacity-70">{style.label}</span>
+          </span>
+        );
+      })}
+    </div>
+  );
+}
+
+function CharacterPortrait({
+  character,
+  isOpponent = false,
+  clickable = false,
+  highlighted = false,
+  queued = false,
+  onClick,
+}: {
+  character: CharacterState;
+  isOpponent?: boolean;
+  clickable?: boolean;
+  highlighted?: boolean;
+  queued?: boolean;
+  onClick?: () => void;
+}) {
+  const dead = character.hp <= 0;
+  const ratio = character.hp_max > 0 ? character.hp / character.hp_max : 0;
+  const hpColor = ratio > 0.6 ? "bg-emerald-500" : ratio > 0.3 ? "bg-amber-400" : "bg-red-500";
+
+  // First letter as a portrait stand-in until we wire real art.
+  const initial = character.name.charAt(0).toUpperCase();
+  const interactive = clickable && highlighted && !dead;
+
+  const handle = interactive ? onClick : undefined;
+
+  return (
+    <div
+      role={interactive ? "button" : undefined}
+      onClick={handle}
+      className={[
+        "relative overflow-hidden rounded-lg p-3 ring-1 transition",
+        dead ? "bg-slate-950/60 ring-slate-900 opacity-50" : "bg-slate-800 ring-slate-700",
+        interactive ? "cursor-pointer ring-amber-400 ring-2 hover:bg-slate-700" : "",
+        queued ? "ring-emerald-500/70 ring-2" : "",
+      ].join(" ")}
+    >
+      <div className="flex items-center gap-3">
+        <div
+          className={[
+            "flex h-12 w-12 shrink-0 items-center justify-center rounded-md text-xl font-bold",
+            isOpponent ? "bg-rose-900/60 text-rose-200" : "bg-emerald-900/60 text-emerald-200",
+            dead ? "grayscale" : "",
+          ].join(" ")}
+        >
+          {initial}
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-baseline justify-between gap-1">
+            <span className="truncate text-sm font-semibold">{character.name}</span>
+            <span className="font-mono text-xs tabular-nums text-slate-300">
+              {character.hp}/{character.hp_max}
+            </span>
+          </div>
+          <div className="mt-1 h-2 overflow-hidden rounded-full bg-slate-900">
+            <div
+              className={`h-full transition-all ${hpColor}`}
+              style={{ width: `${Math.max(0, Math.min(100, ratio * 100))}%` }}
+            />
+          </div>
+          {character.shield > 0 && (
+            <div className="mt-1 text-[10px] font-semibold text-cyan-300">
+              + shield {character.shield}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {character.statuses.length > 0 && (
+        <div className="mt-2 flex flex-wrap gap-1">
+          {character.statuses.map((s, i) => (
+            <span
+              key={i}
+              className="rounded bg-slate-900/70 px-1.5 py-0.5 text-[10px] uppercase tracking-wider text-slate-300 ring-1 ring-slate-700"
+              title={`${s.name} (${s.duration}t · ${s.value})`}
+            >
+              {s.name}
+              <span className="ml-1 text-slate-500">{s.duration}</span>
+            </span>
+          ))}
+        </div>
+      )}
+
+      {dead && (
+        <div className="absolute inset-0 grid place-items-center bg-slate-950/40 text-xs font-bold uppercase tracking-widest text-red-400">
+          KO
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SkillStack({
+  character,
+  def,
+  disabledReason,
   remainingPool,
   onSkillClick,
 }: {
-  activePlayer: PlayerState;
-  charById: Map<string, Character>;
-  charactersAlreadyActing: Set<string>;
+  character: CharacterState;
+  def: Character | undefined;
+  disabledReason: string | null;
   remainingPool: Partial<Record<Essence, number>>;
   onSkillClick: (character: CharacterState, skill: Skill) => void;
 }) {
+  if (!def) {
+    return <div className="rounded-lg bg-slate-900/40 p-2 text-xs text-slate-600">…</div>;
+  }
   return (
-    <div className="space-y-4">
-      {activePlayer.characters
-        .filter((c) => c.hp > 0)
-        .map((character) => {
-          const def = charById.get(character.id);
-          if (!def) return null;
-          const stunned = character.statuses.some((s) => s.name === "stun");
-          const acting = charactersAlreadyActing.has(character.id);
+    <div className="rounded-lg bg-slate-900/60 p-2 ring-1 ring-slate-800">
+      {disabledReason && (
+        <div className="mb-1 text-center text-[10px] font-semibold uppercase tracking-wider text-amber-400">
+          {disabledReason}
+        </div>
+      )}
+      <div className="flex flex-col gap-1.5">
+        {def.skills.map((skill) => {
+          const cd = character.cooldowns[skill.id] ?? 0;
+          const affordable = computePayment(skill.cost, remainingPool) !== null;
+          const disabled = !!disabledReason || cd > 0 || !affordable;
           return (
-            <div key={character.id} className="rounded bg-slate-900 p-3">
-              <div className="mb-2 flex items-baseline justify-between">
-                <span className="font-medium">{character.name}</span>
-                {stunned && <span className="text-xs text-amber-400">stunned</span>}
-                {acting && <span className="text-xs text-emerald-400">queued</span>}
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {def.skills.map((skill) => {
-                  const cd = character.cooldowns[skill.id] ?? 0;
-                  const affordable = computePayment(skill.cost, remainingPool) !== null;
-                  const disabled = stunned || acting || cd > 0 || !affordable;
-                  return (
-                    <button
-                      key={skill.id}
-                      type="button"
-                      onClick={() => onSkillClick(character, skill)}
-                      disabled={disabled}
-                      className="rounded-md bg-slate-700 px-3 py-1.5 text-sm hover:bg-slate-600 disabled:opacity-30"
-                      title={`Cost: ${formatCost(skill.cost)} · CD ${skill.cooldown} · ${skill.target}`}
-                    >
-                      <span className="font-medium">{skill.name}</span>
-                      <span className="ml-2 text-xs text-slate-400">
-                        {formatCost(skill.cost)}
-                        {cd > 0 && ` · CD ${cd}`}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
+            <button
+              key={skill.id}
+              type="button"
+              onClick={() => onSkillClick(character, skill)}
+              disabled={disabled}
+              className={[
+                "group flex items-center justify-between rounded-md px-2 py-1.5 text-left text-xs transition",
+                disabled
+                  ? "bg-slate-900/60 text-slate-500"
+                  : "bg-slate-800 text-slate-100 hover:bg-slate-700 ring-1 ring-slate-700",
+              ].join(" ")}
+              title={describeSkill(skill)}
+            >
+              <span className="truncate font-medium">{skill.name}</span>
+              <span className="ml-2 flex shrink-0 items-center gap-1">
+                {cd > 0 ? (
+                  <span className="rounded bg-slate-950 px-1 font-mono text-[10px] text-amber-300">
+                    {cd}
+                  </span>
+                ) : (
+                  <CostPips cost={skill.cost} />
+                )}
+              </span>
+            </button>
           );
         })}
-    </div>
-  );
-}
-
-function TargetPicker({
-  skill,
-  active,
-  opponent,
-  onPick,
-  onCancel,
-}: {
-  skill: Skill;
-  active: PlayerState;
-  opponent: PlayerState;
-  onPick: (id: string) => void;
-  onCancel: () => void;
-}) {
-  const pool = skill.target === "single_enemy" ? opponent : active;
-  const candidates = pool.characters.filter((c) => c.hp > 0);
-  return (
-    <div className="rounded bg-slate-900 p-4">
-      <p className="mb-3 text-sm">
-        Pick target for <span className="font-semibold">{skill.name}</span> (
-        {skill.target.replace("_", " ")})
-      </p>
-      <div className="flex flex-wrap gap-2">
-        {candidates.map((c) => (
-          <button
-            key={c.id}
-            type="button"
-            onClick={() => onPick(c.id)}
-            className="rounded-md bg-slate-700 px-3 py-1.5 text-sm hover:bg-slate-600"
-          >
-            {c.name} ({c.hp}/{c.hp_max})
-          </button>
-        ))}
-        <button
-          type="button"
-          onClick={onCancel}
-          className="rounded-md bg-slate-800 px-3 py-1.5 text-sm text-slate-400 hover:bg-slate-700"
-        >
-          Cancel
-        </button>
       </div>
     </div>
   );
 }
 
+function CostPips({ cost }: { cost: Partial<Record<Essence, number>> }) {
+  const pips: { color: string; key: string }[] = [];
+  for (const k of ESSENCE_ORDER) {
+    const n = cost[k] ?? 0;
+    for (let i = 0; i < n; i++) pips.push({ color: ESSENCE_STYLE[k].dot, key: `${k}${i}` });
+  }
+  const generic = cost.generic ?? 0;
+  for (let i = 0; i < generic; i++) {
+    pips.push({ color: ESSENCE_STYLE.generic.dot, key: `g${i}` });
+  }
+  if (pips.length === 0) {
+    return <span className="text-[10px] italic text-slate-500">free</span>;
+  }
+  return (
+    <span className="flex items-center gap-0.5">
+      {pips.map((p) => (
+        <span key={p.key} className={`inline-block h-2 w-2 rounded-full ${p.color}`} />
+      ))}
+    </span>
+  );
+}
+
 function ActionQueue({
   queue,
+  charById,
   onRemove,
 }: {
   queue: QueuedAction[];
+  charById: Map<string, Character>;
   onRemove: (idx: number) => void;
 }) {
   if (queue.length === 0) {
-    return <p className="mt-4 text-xs italic text-slate-500">Queue is empty.</p>;
+    return <p className="text-xs italic text-slate-500">No actions queued.</p>;
   }
   return (
-    <ol className="mt-4 space-y-1 text-sm">
-      {queue.map((action, i) => (
-        <li key={i} className="flex items-center justify-between rounded bg-slate-900 px-3 py-1.5">
-          <span>
-            <span className="font-medium">{action.character_id}</span>
-            {" → "}
-            <span className="text-slate-300">{action.skill_id}</span>
-            {action.target_ids.length > 0 && (
-              <span className="ml-2 text-xs text-slate-500">@ {action.target_ids.join(", ")}</span>
-            )}
-          </span>
-          <button
-            type="button"
-            onClick={() => onRemove(i)}
-            className="text-xs text-red-400 hover:text-red-300"
+    <ol className="flex flex-wrap gap-2">
+      {queue.map((action, i) => {
+        const def = charById.get(action.character_id);
+        const skill = def?.skills.find((s) => s.id === action.skill_id);
+        return (
+          <li
+            key={i}
+            className="flex items-center gap-2 rounded-full bg-slate-800 px-3 py-1 text-xs ring-1 ring-slate-700"
           >
-            remove
-          </button>
-        </li>
-      ))}
+            <span className="font-semibold">{def?.name ?? action.character_id}</span>
+            <span className="text-slate-400">→</span>
+            <span>{skill?.name ?? action.skill_id}</span>
+            {action.target_ids.length > 0 && (
+              <span className="text-slate-500">@ {action.target_ids.join(", ")}</span>
+            )}
+            <button
+              type="button"
+              onClick={() => onRemove(i)}
+              className="ml-1 text-rose-400 hover:text-rose-300"
+              aria-label="remove"
+            >
+              ×
+            </button>
+          </li>
+        );
+      })}
     </ol>
   );
 }
 
-function formatCost(cost: Partial<Record<Essence, number>>): string {
-  const parts = Object.entries(cost)
+// --------------------------------------------------------------------------- //
+// Helpers                                                                     //
+// --------------------------------------------------------------------------- //
+
+function targetCandidates(
+  skill: Skill,
+  active: PlayerState,
+  opponent: PlayerState,
+): CharacterState[] {
+  const pool = skill.target === "single_enemy" ? opponent : active;
+  return pool.characters.filter((c) => c.hp > 0);
+}
+
+function describeSkill(skill: Skill): string {
+  const cost = Object.entries(skill.cost)
     .filter(([, v]) => (v ?? 0) > 0)
-    .map(([k, v]) => `${v}${k[0]}`);
-  return parts.length === 0 ? "free" : parts.join("+");
+    .map(([k, v]) => `${v}${k[0]}`)
+    .join("+") || "free";
+  return `${skill.name} · ${cost} · CD ${skill.cooldown} · ${skill.target}`;
 }
