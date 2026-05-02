@@ -66,6 +66,51 @@ const ESSENCE_ORDER: Essence[] = ["vigor", "spirit", "mind", "blood"];
 // timer. Resets when `state.turn` changes.
 const TURN_TIMER_SECONDS = 60;
 
+const MUTE_KEY = "agora.mute";
+
+// Lazily-created shared AudioContext — browsers require a user gesture before
+// it can be unlocked, so we resume() on each call. Returns null if unsupported.
+let audioCtx: AudioContext | null = null;
+function getAudioCtx(): AudioContext | null {
+  if (typeof window === "undefined") return null;
+  if (audioCtx) return audioCtx;
+  const Ctor =
+    typeof AudioContext !== "undefined"
+      ? AudioContext
+      : (window as unknown as { webkitAudioContext?: typeof AudioContext })
+          .webkitAudioContext;
+  if (!Ctor) return null;
+  audioCtx = new Ctor();
+  return audioCtx;
+}
+
+type Beep = "damage" | "heal";
+
+function playBeep(kind: Beep): void {
+  if (typeof window === "undefined") return;
+  if (window.localStorage.getItem(MUTE_KEY) === "1") return;
+  const ctx = getAudioCtx();
+  if (!ctx) return;
+  if (ctx.state === "suspended") void ctx.resume();
+  const t0 = ctx.currentTime;
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.connect(gain);
+  gain.connect(ctx.destination);
+  // Damage = low sawtooth thump; heal = brighter sine chime.
+  const profile =
+    kind === "damage"
+      ? { freq: 220, type: "sawtooth" as OscillatorType, vol: 0.16, dur: 0.12 }
+      : { freq: 660, type: "sine" as OscillatorType, vol: 0.12, dur: 0.18 };
+  osc.type = profile.type;
+  osc.frequency.setValueAtTime(profile.freq, t0);
+  gain.gain.setValueAtTime(0, t0);
+  gain.gain.linearRampToValueAtTime(profile.vol, t0 + 0.01);
+  gain.gain.exponentialRampToValueAtTime(0.001, t0 + profile.dur);
+  osc.start(t0);
+  osc.stop(t0 + profile.dur + 0.05);
+}
+
 interface FloatingNumber {
   id: number;
   target: string;
@@ -93,8 +138,21 @@ export function BattlePage() {
   const [floats, setFloats] = useState<FloatingNumber[]>([]);
   const [turnStartedAt, setTurnStartedAt] = useState<number>(() => Date.now());
   const [now, setNow] = useState<number>(() => Date.now());
+  const [splashFor, setSplashFor] = useState<string | null>(null);
+  const [muted, setMuted] = useState<boolean>(() =>
+    typeof window === "undefined" ? false : window.localStorage.getItem(MUTE_KEY) === "1",
+  );
   const wsRef = useRef<WebSocket | null>(null);
   const floatId = useRef(0);
+  const splashSeenRef = useRef<Set<string>>(new Set());
+
+  const toggleMute = () => {
+    setMuted((prev) => {
+      const next = !prev;
+      window.localStorage.setItem(MUTE_KEY, next ? "1" : "0");
+      return next;
+    });
+  };
 
   const characters = useQuery({ queryKey: ["characters"], queryFn: api.listCharacters });
   const charById = useMemo(() => {
@@ -126,6 +184,16 @@ export function BattlePage() {
     if (!state) return;
     setTurnStartedAt(Date.now());
   }, [state?.turn, state?.current_side]);
+
+  // Show the VS splash once per match — only on the first arrival at turn 1.
+  useEffect(() => {
+    if (!state || state.turn !== 1 || state.finished) return;
+    if (splashSeenRef.current.has(state.match_id)) return;
+    splashSeenRef.current.add(state.match_id);
+    setSplashFor(state.match_id);
+    const handle = window.setTimeout(() => setSplashFor(null), 2000);
+    return () => window.clearTimeout(handle);
+  }, [state?.match_id, state?.turn, state?.finished]);
 
   useEffect(() => {
     if (!params.matchId) return;
@@ -183,6 +251,10 @@ export function BattlePage() {
     }
     if (additions.length === 0) return;
     setFloats((prev) => [...prev, ...additions]);
+    // One beep per kind per batch — avoids a chord when a multi-target hit
+    // dispatches three damage events on the same frame.
+    if (additions.some((f) => f.kind === "damage")) playBeep("damage");
+    if (additions.some((f) => f.kind === "heal")) playBeep("heal");
     // Drop floats after the animation finishes so the array doesn't grow.
     window.setTimeout(() => {
       const ids = new Set(additions.map((f) => f.id));
@@ -305,6 +377,12 @@ export function BattlePage() {
 
   return (
     <div className="mx-auto flex min-h-screen max-w-5xl flex-col gap-4 px-4 py-6">
+      <VsSplash
+        visible={splashFor === state.match_id}
+        teamA={state.a.characters}
+        teamB={state.b.characters}
+      />
+
       {/* HUD ──────────────────────────────────────────────────────────────── */}
       <header className="overflow-hidden rounded-xl bg-slate-900/80 shadow ring-1 ring-slate-800">
         <div className="flex items-center justify-between px-5 py-3">
@@ -317,19 +395,30 @@ export function BattlePage() {
             <div className="text-xs uppercase tracking-wider text-slate-500">Turn</div>
             <div className="text-2xl font-bold tabular-nums">{state.turn}</div>
           </div>
-          <div className="text-right text-sm">
-            <div className="text-xs uppercase tracking-wider text-slate-500">
-              Acting · {secondsLeft}s
+          <div className="flex items-center gap-3">
+            <div className="text-right text-sm">
+              <div className="text-xs uppercase tracking-wider text-slate-500">
+                Acting · {secondsLeft}s
+              </div>
+              <div
+                className={
+                  state.current_side === "A"
+                    ? "font-bold text-emerald-400"
+                    : "font-bold text-rose-400"
+                }
+              >
+                Side {state.current_side}
+              </div>
             </div>
-            <div
-              className={
-                state.current_side === "A"
-                  ? "font-bold text-emerald-400"
-                  : "font-bold text-rose-400"
-              }
+            <button
+              type="button"
+              onClick={toggleMute}
+              aria-label={muted ? "Unmute" : "Mute"}
+              title={muted ? "Sounds off" : "Sounds on"}
+              className="rounded-md bg-slate-800 px-2 py-1 text-lg leading-none text-slate-300 ring-1 ring-slate-700 hover:bg-slate-700"
             >
-              Side {state.current_side}
-            </div>
+              {muted ? "\u{1F507}" : "\u{1F50A}"}
+            </button>
           </div>
         </div>
         {!state.finished && (
@@ -599,6 +688,10 @@ function CharacterPortrait({
   // First letter as a portrait stand-in until we wire real art.
   const initial = character.name.charAt(0).toUpperCase();
   const interactive = clickable && highlighted && !dead;
+  // Try real art first; fall back to the initial if the file isn't there.
+  // Files live under web/public/portraits/<id>.webp; missing ones quietly 404.
+  const [artBroken, setArtBroken] = useState(false);
+  const portraitUrl = `/portraits/${character.id}.webp`;
 
   const handle = interactive ? onClick : undefined;
 
@@ -633,12 +726,22 @@ function CharacterPortrait({
       <div className="flex items-center gap-3">
         <div
           className={[
-            "flex h-12 w-12 shrink-0 items-center justify-center rounded-md text-xl font-bold",
+            "flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-md text-xl font-bold",
             isOpponent ? "bg-rose-900/60 text-rose-200" : "bg-emerald-900/60 text-emerald-200",
             dead ? "grayscale" : "",
           ].join(" ")}
         >
-          {initial}
+          {artBroken ? (
+            initial
+          ) : (
+            <img
+              src={portraitUrl}
+              alt=""
+              draggable={false}
+              onError={() => setArtBroken(true)}
+              className="h-full w-full object-cover"
+            />
+          )}
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex items-baseline justify-between gap-1">
@@ -807,6 +910,68 @@ function ActionQueue({
         );
       })}
     </ol>
+  );
+}
+
+function VsSplash({
+  visible,
+  teamA,
+  teamB,
+}: {
+  visible: boolean;
+  teamA: CharacterState[];
+  teamB: CharacterState[];
+}) {
+  return (
+    <AnimatePresence>
+      {visible && (
+        <motion.div
+          key="splash"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.25 }}
+          className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm"
+        >
+          <motion.div
+            initial={{ x: -180, opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            transition={{ delay: 0.05, type: "spring", stiffness: 200, damping: 18 }}
+            className="text-right"
+          >
+            <div className="text-[10px] font-semibold uppercase tracking-[0.4em] text-emerald-400">
+              Side A
+            </div>
+            <div className="text-3xl font-bold text-emerald-100">
+              {teamA.map((c) => c.name).join(" · ")}
+            </div>
+          </motion.div>
+
+          <motion.div
+            initial={{ scale: 0.4, opacity: 0, rotate: -10 }}
+            animate={{ scale: 1, opacity: 1, rotate: 0 }}
+            transition={{ delay: 0.15, type: "spring", stiffness: 260, damping: 14 }}
+            className="mx-6 select-none text-7xl font-black italic tracking-tight text-amber-400 drop-shadow-[0_0_18px_rgba(251,191,36,0.45)]"
+          >
+            VS
+          </motion.div>
+
+          <motion.div
+            initial={{ x: 180, opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            transition={{ delay: 0.05, type: "spring", stiffness: 200, damping: 18 }}
+            className="text-left"
+          >
+            <div className="text-[10px] font-semibold uppercase tracking-[0.4em] text-rose-400">
+              Side B
+            </div>
+            <div className="text-3xl font-bold text-rose-100">
+              {teamB.map((c) => c.name).join(" · ")}
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 }
 
