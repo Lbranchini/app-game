@@ -139,6 +139,7 @@ export function BattlePage() {
   const [turnStartedAt, setTurnStartedAt] = useState<number>(() => Date.now());
   const [now, setNow] = useState<number>(() => Date.now());
   const [splashFor, setSplashFor] = useState<string | null>(null);
+  const [wsStatus, setWsStatus] = useState<"connecting" | "open" | "closed">("connecting");
   const [muted, setMuted] = useState<boolean>(() =>
     typeof window === "undefined" ? false : window.localStorage.getItem(MUTE_KEY) === "1",
   );
@@ -267,7 +268,10 @@ export function BattlePage() {
     const token = auth.getToken();
     const url = new URL(`${proto}//${window.location.host}/api/match/ws/${id}`);
     if (token) url.searchParams.set("token", token);
+    setWsStatus("connecting");
     const ws = new WebSocket(url.toString());
+    ws.onopen = () => setWsStatus("open");
+    ws.onclose = () => setWsStatus("closed");
     ws.onmessage = (msg) => {
       const frame = JSON.parse(msg.data);
       if (frame.type === "state") {
@@ -282,7 +286,10 @@ export function BattlePage() {
         setError(frame.detail);
       }
     };
-    ws.onerror = () => setError("WebSocket error");
+    ws.onerror = () => {
+      setError("WebSocket error");
+      setWsStatus("closed");
+    };
     wsRef.current = ws;
   };
 
@@ -386,9 +393,10 @@ export function BattlePage() {
       {/* HUD ──────────────────────────────────────────────────────────────── */}
       <header className="overflow-hidden rounded-xl bg-slate-900/80 shadow ring-1 ring-slate-800">
         <div className="flex items-center justify-between px-5 py-3">
-          <div className="text-sm text-slate-400">
+          <div className="flex items-center gap-3 text-sm text-slate-400">
+            <ConnectionDot status={wsStatus} />
             <span className="font-mono text-slate-500">match {matchId?.slice(0, 8)}</span>
-            <span className="mx-2 text-slate-700">·</span>
+            <span className="text-slate-700">·</span>
             <span>arena {state.arena_id}</span>
           </div>
           <div className="text-center">
@@ -910,6 +918,29 @@ function ActionQueue({
         );
       })}
     </ol>
+  );
+}
+
+function ConnectionDot({ status }: { status: "connecting" | "open" | "closed" }) {
+  const profile =
+    status === "open"
+      ? { color: "bg-emerald-400", label: "live", pulse: true }
+      : status === "connecting"
+        ? { color: "bg-amber-400", label: "connecting", pulse: true }
+        : { color: "bg-red-500", label: "offline", pulse: false };
+  return (
+    <span
+      className="inline-flex items-center gap-1.5 rounded-full bg-slate-950/60 px-2 py-0.5 text-[10px] uppercase tracking-wider text-slate-400 ring-1 ring-slate-800"
+      title={`WebSocket ${status}`}
+    >
+      <span className="relative flex h-2 w-2">
+        {profile.pulse && (
+          <span className={`absolute inline-flex h-full w-full animate-ping rounded-full opacity-60 ${profile.color}`} />
+        )}
+        <span className={`relative inline-flex h-2 w-2 rounded-full ${profile.color}`} />
+      </span>
+      {profile.label}
+    </span>
   );
 }
 
