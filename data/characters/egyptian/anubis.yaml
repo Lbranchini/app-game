@@ -14,6 +14,8 @@ skills:
     cost: { blood: 1 }
     cooldown: 0
     target: single_enemy
+    description: "Anubis binds target enemy in cursed funeral wrappings, dealing 10
+      damage and inflicting poison for 10 damage per turn for 2 turns."
     effects:
       - { kind: damage, value: 10 }
       - { kind: status, status: poison, duration: 2, value: 10 }
@@ -24,6 +26,7 @@ skills:
     cost: { blood: 1, mind: 1 }
     cooldown: 2
     target: single_enemy
+    description: "Anubis passes final judgment upon target enemy's soul, dealing 20 damage."
     effects:
       - { kind: damage, value: 20 }
 
@@ -33,5 +36,7 @@ skills:
     cost: { blood: 2, generic: 1 }
     cooldown: 5
     target: single_enemy
+    description: "Anubis weighs the corrupted heart of target enemy against the
+      Feather of Ma'at, dealing 30 damage that pierces through all defenses."
     effects:
       - { kind: damage, value: 30, piercing: true }

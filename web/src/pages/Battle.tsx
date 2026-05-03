@@ -12,9 +12,9 @@ import {
 } from "@/api/battle";
 import type { Character, Essence, Skill } from "@/types/api";
 
-// --------------------------------------------------------------------------- //
-// Types mirroring the MatchState payload                                      //
-// --------------------------------------------------------------------------- //
+// ============================================================================
+// TYPES & CONSTANTS
+// ============================================================================
 
 interface CharacterState {
   id: string;
@@ -42,7 +42,6 @@ interface MatchState {
   b: PlayerState;
   finished: boolean;
   winner: "A" | "B" | null;
-  // ISO-8601 string emitted by the server. Null while the match is finished.
   turn_deadline: string | null;
 }
 
@@ -51,27 +50,33 @@ interface MatchEvent {
   details: Record<string, unknown>;
 }
 
+interface FloatingNumber {
+  id: number;
+  target: string;
+  value: number;
+  kind: "damage" | "heal";
+  tick?: string;
+}
+
 const DEMO_TEAM_A = ["achilles", "athena", "anubis"];
 const DEMO_TEAM_B = ["thor", "isis", "loki"];
 
 const ESSENCE_STYLE: Record<Essence, { dot: string; chip: string; label: string }> = {
-  vigor:   { dot: "bg-red-500",    chip: "bg-red-500/20 text-red-300 ring-red-500/40",       label: "VIG" },
-  spirit:  { dot: "bg-amber-400",  chip: "bg-amber-400/20 text-amber-200 ring-amber-400/40", label: "SPI" },
-  mind:    { dot: "bg-sky-400",    chip: "bg-sky-400/20 text-sky-200 ring-sky-400/40",       label: "MND" },
-  blood:   { dot: "bg-fuchsia-500", chip: "bg-fuchsia-500/20 text-fuchsia-200 ring-fuchsia-500/40", label: "BLD" },
-  generic: { dot: "bg-slate-400",  chip: "bg-slate-400/20 text-slate-200 ring-slate-400/40", label: "GEN" },
+  vigor: { dot: "bg-red-500", chip: "bg-red-500/20 text-red-300 ring-red-500/40", label: "VIG" },
+  spirit: { dot: "bg-amber-400", chip: "bg-amber-400/20 text-amber-200 ring-amber-400/40", label: "SPI" },
+  mind: { dot: "bg-sky-400", chip: "bg-sky-400/20 text-sky-200 ring-sky-400/40", label: "MND" },
+  blood: { dot: "bg-fuchsia-500", chip: "bg-fuchsia-500/20 text-fuchsia-200 ring-fuchsia-500/40", label: "BLD" },
+  generic: { dot: "bg-slate-400", chip: "bg-slate-400/20 text-slate-200 ring-slate-400/40", label: "GEN" },
 };
 
 const ESSENCE_ORDER: Essence[] = ["vigor", "spirit", "mind", "blood"];
-
-// Suggested per-turn budget — purely cosmetic until the server enforces a
-// timer. Resets when `state.turn` changes.
 const TURN_TIMER_SECONDS = 60;
-
 const MUTE_KEY = "agora.mute";
 
-// Lazily-created shared AudioContext — browsers require a user gesture before
-// it can be unlocked, so we resume() on each call. Returns null if unsupported.
+// ============================================================================
+// AUDIO
+// ============================================================================
+
 let audioCtx: AudioContext | null = null;
 function getAudioCtx(): AudioContext | null {
   if (typeof window === "undefined") return null;
@@ -79,16 +84,13 @@ function getAudioCtx(): AudioContext | null {
   const Ctor =
     typeof AudioContext !== "undefined"
       ? AudioContext
-      : (window as unknown as { webkitAudioContext?: typeof AudioContext })
-          .webkitAudioContext;
+      : (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
   if (!Ctor) return null;
   audioCtx = new Ctor();
   return audioCtx;
 }
 
-type Beep = "damage" | "heal";
-
-function playBeep(kind: Beep): void {
+function playBeep(kind: "damage" | "heal"): void {
   if (typeof window === "undefined") return;
   if (window.localStorage.getItem(MUTE_KEY) === "1") return;
   const ctx = getAudioCtx();
@@ -99,7 +101,6 @@ function playBeep(kind: Beep): void {
   const gain = ctx.createGain();
   osc.connect(gain);
   gain.connect(ctx.destination);
-  // Damage = low sawtooth thump; heal = brighter sine chime.
   const profile =
     kind === "damage"
       ? { freq: 220, type: "sawtooth" as OscillatorType, vol: 0.16, dur: 0.12 }
@@ -113,17 +114,9 @@ function playBeep(kind: Beep): void {
   osc.stop(t0 + profile.dur + 0.05);
 }
 
-interface FloatingNumber {
-  id: number;
-  target: string;
-  value: number;
-  kind: "damage" | "heal";
-  tick?: string;
-}
-
-// --------------------------------------------------------------------------- //
-// Page                                                                        //
-// --------------------------------------------------------------------------- //
+// ============================================================================
+// MAIN PAGE
+// ============================================================================
 
 export function BattlePage() {
   const params = useParams<{ matchId?: string }>();
@@ -132,23 +125,22 @@ export function BattlePage() {
   const [events, setEvents] = useState<MatchEvent[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [queue, setQueue] = useState<QueuedAction[]>([]);
-  const [pending, setPending] = useState<{
-    character_id: string;
-    skill: Skill;
-    paid: Partial<Record<Essence, number>>;
-  } | null>(null);
   const [floats, setFloats] = useState<FloatingNumber[]>([]);
   const [turnStartedAt, setTurnStartedAt] = useState<number>(() => Date.now());
   const [now, setNow] = useState<number>(() => Date.now());
   const [splashFor, setSplashFor] = useState<string | null>(null);
   const [wsStatus, setWsStatus] = useState<"connecting" | "open" | "closed">("connecting");
-  const [opponentOffline, setOpponentOffline] = useState<{
-    playerId: string;
-    forfeitDeadlineMs: number;
-  } | null>(null);
+  const [opponentOffline, setOpponentOffline] = useState<{ playerId: string; forfeitDeadlineMs: number } | null>(null);
   const [muted, setMuted] = useState<boolean>(() =>
-    typeof window === "undefined" ? false : window.localStorage.getItem(MUTE_KEY) === "1",
+    typeof window === "undefined" ? false : window.localStorage.getItem(MUTE_KEY) === "1"
   );
+  const [selectedSkill, setSelectedSkill] = useState<{
+    character_id: string;
+    character_name: string;
+    skill: Skill;
+  } | null>(null);
+  const [targetSide, setTargetSide] = useState<"enemy" | "ally" | "self" | null>(null);
+
   const wsRef = useRef<WebSocket | null>(null);
   const floatId = useRef(0);
   const splashSeenRef = useRef<Set<string>>(new Set());
@@ -181,27 +173,21 @@ export function BattlePage() {
 
   useEffect(() => () => wsRef.current?.close(), []);
 
-  // 1-second cadence is enough for a smooth-looking timer bar.
   useEffect(() => {
     const handle = window.setInterval(() => setNow(Date.now()), 250);
     return () => window.clearInterval(handle);
   }, []);
 
-  // Reset the local turn timer whenever the server advances the turn.
   useEffect(() => {
     if (!state) return;
     setTurnStartedAt(Date.now());
   }, [state?.turn, state?.current_side]);
 
-  // Mirror the queue into a ref so the auto-submit timer (set up once per
-  // deadline change) can read the latest value without re-scheduling.
   useEffect(() => {
     queueRef.current = queue;
   }, [queue]);
 
-  // Auto-submit whatever the player has queued ~500ms before the server's
-  // deadline. The server will auto-resolve at the deadline regardless; this
-  // gives queued actions a chance to land first instead of being dropped.
+  // Auto-submit ~500ms before deadline
   useEffect(() => {
     if (!state || state.finished || !state.turn_deadline) return;
     const fireAt = Date.parse(state.turn_deadline) - 500;
@@ -217,7 +203,7 @@ export function BattlePage() {
     return () => window.clearTimeout(handle);
   }, [state?.turn_deadline, state?.finished]);
 
-  // Show the VS splash once per match — only on the first arrival at turn 1.
+  // Show VS splash on turn 1
   useEffect(() => {
     if (!state || state.turn !== 1 || state.finished) return;
     if (splashSeenRef.current.has(state.match_id)) return;
@@ -240,7 +226,6 @@ export function BattlePage() {
         setError(String(e));
       }
     })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params.matchId]);
 
   const startMatch = async () => {
@@ -283,11 +268,8 @@ export function BattlePage() {
     }
     if (additions.length === 0) return;
     setFloats((prev) => [...prev, ...additions]);
-    // One beep per kind per batch — avoids a chord when a multi-target hit
-    // dispatches three damage events on the same frame.
     if (additions.some((f) => f.kind === "damage")) playBeep("damage");
     if (additions.some((f) => f.kind === "heal")) playBeep("heal");
-    // Drop floats after the animation finishes so the array doesn't grow.
     window.setTimeout(() => {
       const ids = new Set(additions.map((f) => f.id));
       setFloats((prev) => prev.filter((f) => !ids.has(f.id)));
@@ -307,25 +289,13 @@ export function BattlePage() {
       const frame = JSON.parse(msg.data);
       if (frame.type === "state") {
         setState(frame.state);
-        setQueue([]);  // server resolved a turn — local queue is stale
-        setPending(null);
+        setQueue([]);
         if (Array.isArray(frame.events)) {
-          const events = frame.events as MatchEvent[];
-          // Tag auto-resolved frames so the event log makes it visible.
-          if (frame.auto_resolved) {
-            setEvents((prev) => [
-              ...prev,
-              { kind: "turn_auto_resolved", details: {} },
-              ...events,
-            ]);
-          } else {
-            setEvents((prev) => [...prev, ...events]);
-          }
-          spawnFloats(events);
+          const newEvents = frame.events as MatchEvent[];
+          setEvents((prev) => (frame.auto_resolved ? [...prev, { kind: "turn_auto_resolved", details: {} }, ...newEvents] : [...prev, ...newEvents]));
+          spawnFloats(newEvents);
         }
       } else if (frame.type === "presence") {
-        // Opponent dropped or recovered. The server is the source of truth
-        // for the forfeit clock; we just mirror the deadline locally.
         if (frame.status === "disconnected" && typeof frame.forfeit_deadline === "string") {
           setOpponentOffline({
             playerId: String(frame.player_id ?? ""),
@@ -346,12 +316,7 @@ export function BattlePage() {
   };
 
   const submitTurn = () => {
-    wsRef.current?.send(
-      JSON.stringify({
-        type: "actions",
-        actions: queue,
-      }),
-    );
+    wsRef.current?.send(JSON.stringify({ type: "actions", actions: queue }));
   };
 
   if (!state) {
@@ -373,92 +338,81 @@ export function BattlePage() {
     );
   }
 
-  // The bottom team is always the one whose turn it is — gives the player
-  // the "I command this side" framing that arena games use.
   const activePlayer = state.current_side === "A" ? state.a : state.b;
   const opponent = state.current_side === "A" ? state.b : state.a;
-
-  const remainingPool = queue.reduce(
-    (pool, action) => subtractPayment(pool, action.paid),
-    activePlayer.essences,
-  );
-
+  const remainingPool = queue.reduce((pool, action) => subtractPayment(pool, action.paid), activePlayer.essences);
   const charactersAlreadyActing = new Set(queue.map((a) => a.character_id));
 
-  const enqueue = (action: QueuedAction) => {
-    setQueue((prev) => [...prev, action]);
-    setPending(null);
-  };
-
-  const onSkillClick = (character: CharacterState, skill: Skill) => {
-    const paid = computePayment(skill.cost, remainingPool);
-    if (paid === null) return;
-    if (skill.target === "self") {
-      enqueue({
-        character_id: character.id,
-        skill_id: skill.id,
-        target_ids: [character.id],
-        paid,
-      });
-      return;
-    }
-    if (!needsTargetPick(skill.target)) {
-      enqueue({
-        character_id: character.id,
-        skill_id: skill.id,
-        target_ids: [],
-        paid,
-      });
-      return;
-    }
-    setPending({ character_id: character.id, skill, paid });
-  };
-
-  const onTargetClick = (targetId: string) => {
-    if (!pending) return;
-    enqueue({
-      character_id: pending.character_id,
-      skill_id: pending.skill.id,
-      target_ids: [targetId],
-      paid: pending.paid,
-    });
-  };
-
-  const validTargetIds = pending
-    ? targetCandidates(pending.skill, activePlayer, opponent).map((c) => c.id)
-    : null;
-
-  // Server-authoritative timer. We parse the deadline once per render and let
-  // the 250ms `now` tick drive the visible countdown. If the server didn't
-  // send a deadline (older snapshot or finished match), we fall back to the
-  // local turnStartedAt + TURN_TIMER_SECONDS for continuity.
   const serverDeadline = state.turn_deadline ? Date.parse(state.turn_deadline) : null;
   const localDeadline = turnStartedAt + TURN_TIMER_SECONDS * 1000;
   const deadlineMs = state.finished ? null : (serverDeadline ?? localDeadline);
-  const totalMs = serverDeadline
-    ? TURN_TIMER_SECONDS * 1000  // server uses the same 60s today
-    : TURN_TIMER_SECONDS * 1000;
+  const totalMs = TURN_TIMER_SECONDS * 1000;
   const remainingMs = deadlineMs === null ? 0 : Math.max(0, deadlineMs - now);
   const timerRatio = deadlineMs === null ? 0 : Math.max(0, Math.min(1, remainingMs / totalMs));
   const secondsLeft = Math.ceil(remainingMs / 1000);
 
-  // Drop the offline banner when the match ends — the server will have
-  // already broadcast the final state frame.
   const offlineBanner = state.finished ? null : opponentOffline;
-  const offlineSecondsLeft = offlineBanner
-    ? Math.max(0, Math.ceil((offlineBanner.forfeitDeadlineMs - now) / 1000))
-    : 0;
+  const offlineSecondsLeft = offlineBanner ? Math.max(0, Math.ceil((offlineBanner.forfeitDeadlineMs - now) / 1000)) : 0;
+
+  const onSkillClick = (character: CharacterState, skill: Skill) => {
+    const paid = computePayment(skill.cost, remainingPool);
+    if (paid === null) return;
+
+    setSelectedSkill({ character_id: character.id, character_name: character.name, skill });
+
+    if (skill.target === "self") {
+      setTargetSide("self");
+    } else if (skill.target === "single_enemy" || skill.target === "all_enemies") {
+      setTargetSide("enemy");
+    } else {
+      setTargetSide("ally");
+    }
+  };
+
+  const enqueue = (action: QueuedAction) => {
+    setQueue((prev) => [...prev, action]);
+    setSelectedSkill(null);
+    setTargetSide(null);
+  };
+
+  const onTargetClick = (targetId: string) => {
+    if (!selectedSkill) return;
+    const skill = selectedSkill.skill;
+    // For self: guard against clicking the wrong character (belt-and-suspenders)
+    if (targetSide === "self" && targetId !== selectedSkill.character_id) return;
+    let target_ids: string[];
+    if (skill.target === "all_enemies") {
+      target_ids = opponent.characters.map((c) => c.id);
+    } else if (skill.target === "all_allies") {
+      target_ids = activePlayer.characters.map((c) => c.id);
+    } else {
+      target_ids = [targetId];
+    }
+    enqueue({
+      character_id: selectedSkill.character_id,
+      skill_id: skill.id,
+      target_ids,
+      paid: computePayment(skill.cost, remainingPool) ?? {},
+    });
+  };
 
   return (
-    <div className="mx-auto flex min-h-screen max-w-5xl flex-col gap-4 px-4 py-6">
-      <VsSplash
-        visible={splashFor === state.match_id}
-        teamA={state.a.characters}
-        teamB={state.b.characters}
-      />
+    <div
+      className="min-h-screen flex flex-col"
+      style={{
+        backgroundImage: "url('/arena-bg.svg')",
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        backgroundRepeat: "no-repeat",
+      }}
+    >
+      {/* Dark overlay so UI stays readable */}
+      <div className="absolute inset-0 bg-slate-950/70 pointer-events-none" />
+      <div className="relative flex flex-col min-h-screen">
+      <VsSplash visible={splashFor === state.match_id} teamA={state.a.characters} teamB={state.b.characters} />
 
       {offlineBanner && (
-        <div className="flex items-center justify-between rounded-xl bg-amber-500/10 px-4 py-3 text-sm text-amber-200 ring-1 ring-amber-500/40">
+        <div className="mx-4 mt-4 flex items-center rounded-lg bg-amber-500/10 px-4 py-2 text-xs text-amber-200 ring-1 ring-amber-500/40">
           <span>
             Opponent disconnected — auto-forfeit in{" "}
             <span className="font-mono font-bold text-amber-100">{offlineSecondsLeft}s</span>
@@ -466,9 +420,9 @@ export function BattlePage() {
         </div>
       )}
 
-      {/* HUD ──────────────────────────────────────────────────────────────── */}
-      <header className="overflow-hidden rounded-xl bg-slate-900/80 shadow ring-1 ring-slate-800">
-        <div className="flex items-center justify-between px-5 py-3">
+      {/* HEADER */}
+      <header className="border-b border-slate-800 bg-slate-900/80 px-6 py-3">
+        <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-3 text-sm text-slate-400">
             <ConnectionDot status={wsStatus} />
             <span className="font-mono text-slate-500">match {matchId?.slice(0, 8)}</span>
@@ -481,9 +435,7 @@ export function BattlePage() {
           </div>
           <div className="flex items-center gap-3">
             <div className="text-right text-sm">
-              <div className="text-xs uppercase tracking-wider text-slate-500">
-                Acting · {secondsLeft}s
-              </div>
+              <div className="text-xs uppercase tracking-wider text-slate-500">Acting · {secondsLeft}s</div>
               <div
                 className={
                   state.current_side === "A"
@@ -498,7 +450,6 @@ export function BattlePage() {
               type="button"
               onClick={toggleMute}
               aria-label={muted ? "Unmute" : "Mute"}
-              title={muted ? "Sounds off" : "Sounds on"}
               className="rounded-md bg-slate-800 px-2 py-1 text-lg leading-none text-slate-300 ring-1 ring-slate-700 hover:bg-slate-700"
             >
               {muted ? "\u{1F507}" : "\u{1F50A}"}
@@ -506,7 +457,7 @@ export function BattlePage() {
           </div>
         </div>
         {!state.finished && (
-          <div className="h-1 bg-slate-800">
+          <div className="h-1 bg-slate-800 rounded-full overflow-hidden">
             <div
               className={[
                 "h-full transition-[width] duration-200 ease-linear",
@@ -518,270 +469,285 @@ export function BattlePage() {
         )}
       </header>
 
-      {/* OPPONENT (top) ──────────────────────────────────────────────────── */}
-      <section
-        aria-label="Opponent team"
-        className="rounded-xl bg-gradient-to-b from-slate-900/80 to-slate-900/30 p-4 ring-1 ring-slate-800"
-      >
-        <SideHeader
-          label={`Opponent · Side ${opponent.side}`}
-          essences={opponent.essences}
-          tone="rose"
+      {/* BATTLE AREA - Side by side */}
+      <div className="flex-1 flex gap-4 p-4 overflow-hidden">
+        {/* LEFT: YOUR TEAM */}
+        <BattleSide
+          title={`Your team · Side ${activePlayer.side}`}
+          side="player"
+          characters={activePlayer.characters}
+          player={activePlayer}
+          charById={charById}
+          floatsByTarget={floatsByTarget}
+          isActive={state.current_side === activePlayer.side}
+          queued={charactersAlreadyActing}
+          selectedSkillCharId={selectedSkill?.character_id}
+          targetSide={targetSide}
+          onSkillClick={onSkillClick}
+          onTargetClick={targetSide === "ally" || targetSide === "self" ? onTargetClick : undefined}
+          remainingPool={remainingPool}
         />
-        <div className="mt-3 grid grid-cols-3 gap-3">
-          {opponent.characters.map((c) => (
-            <CharacterPortrait
-              key={c.id}
-              character={c}
-              isOpponent
-              clickable={pending?.skill.target === "single_enemy"}
-              highlighted={validTargetIds?.includes(c.id) ?? false}
-              floats={floatsByTarget.get(c.id) ?? []}
-              onClick={() => onTargetClick(c.id)}
-            />
-          ))}
+
+        {/* CENTER: CONTROLS */}
+        <div className="w-80 flex flex-col gap-4">
+          {/* Essence Info */}
+          <div className="bg-slate-900/80 rounded-lg ring-1 ring-slate-800 p-4 space-y-3">
+            <div>
+              <div className="text-xs uppercase tracking-wider text-slate-500 mb-2">Your essences</div>
+              <EssenceBar pool={activePlayer.essences} large />
+            </div>
+            <div className="h-px bg-slate-700" />
+            <div>
+              <div className="text-xs uppercase tracking-wider text-slate-500 mb-2">Available</div>
+              <EssenceBar pool={remainingPool} large />
+            </div>
+          </div>
+
+          {/* Skill Detail (inline, read-only) */}
+          <AnimatePresence>
+            {selectedSkill && (
+              <motion.div
+                key={selectedSkill.skill.id}
+                initial={{ opacity: 0, y: -8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: 0.15 }}
+                className="bg-slate-900/90 rounded-lg ring-1 ring-amber-500/40 p-4 space-y-3"
+              >
+                <div className="flex items-start justify-between">
+                  <div>
+                    <div className="text-base font-bold text-amber-200">{selectedSkill.skill.name}</div>
+                    <div className="text-[10px] text-slate-400">{selectedSkill.character_name}</div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => { setSelectedSkill(null); setTargetSide(null); }}
+                    className="text-slate-500 hover:text-slate-300 text-lg leading-none"
+                  >×</button>
+                </div>
+                {/* Naruto Arena-style description */}
+                <p className="text-[13px] leading-relaxed text-slate-100 border-l-2 border-amber-500/60 pl-3">
+                  {selectedSkill.skill.description?.trim()
+                    ? selectedSkill.skill.description
+                    : buildSkillDescription(selectedSkill.skill)}
+                </p>
+
+                {/* Meta row: cost + cooldown */}
+                <div className="flex items-center justify-between gap-2 pt-1 border-t border-slate-700/60">
+                  <div className="flex gap-1 flex-wrap">
+                    {Object.keys(selectedSkill.skill.cost).length === 0 ? (
+                      <span className="text-[10px] italic text-slate-500">No cost</span>
+                    ) : (
+                      Object.entries(selectedSkill.skill.cost).map(([e, n]) => (
+                        <span key={e} className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ring-1 ${ESSENCE_STYLE[e as Essence].chip}`}>
+                          <span className={`inline-block h-1.5 w-1.5 rounded-full mr-1 ${ESSENCE_STYLE[e as Essence].dot}`}/>
+                          {n}× {ESSENCE_STYLE[e as Essence].label}
+                        </span>
+                      ))
+                    )}
+                  </div>
+                  <div className="flex gap-3 text-[10px] text-slate-500 shrink-0">
+                    {selectedSkill.skill.cooldown > 0 && (
+                      <span>CD <span className="text-slate-300 font-bold">{selectedSkill.skill.cooldown}</span></span>
+                    )}
+                    {selectedSkill.skill.duration > 0 && (
+                      <span>DUR <span className="text-slate-300 font-bold">{selectedSkill.skill.duration}</span></span>
+                    )}
+                  </div>
+                </div>
+                {targetSide && (
+                  <p className="text-[10px] text-amber-400/70 italic">
+                    {targetSide === "enemy"
+                      ? selectedSkill.skill.target === "all_enemies"
+                        ? "→ Click any opponent to hit all enemies"
+                        : "→ Click an opponent to cast"
+                      : targetSide === "self"
+                        ? "→ Click the same character to cast"
+                        : selectedSkill.skill.target === "all_allies"
+                          ? "→ Click any ally to buff all allies"
+                          : "→ Click an ally to cast"}
+                  </p>
+                )}
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Queue */}
+          {!state.finished && (
+            <div className="bg-slate-900/80 rounded-lg ring-1 ring-slate-800 p-4 flex-1 flex flex-col">
+              <div className="text-xs uppercase tracking-wider text-slate-500 mb-3 font-semibold">
+                {queue.length === 0 ? "No actions" : `${queue.length}/3 queued`}
+              </div>
+              <div className="flex-1 overflow-y-auto space-y-2 mb-3">
+                {queue.map((action, i) => {
+                  const def = charById.get(action.character_id);
+                  const skill = def?.skills.find((s) => s.id === action.skill_id);
+                  return (
+                    <div key={i} className="flex items-center justify-between gap-2 rounded-md bg-slate-800 px-2 py-1.5 text-xs ring-1 ring-slate-700">
+                      <div className="min-w-0 flex-1">
+                        <div className="font-semibold truncate text-slate-100">{def?.name}</div>
+                        <div className="text-slate-400 text-[10px] truncate">{skill?.name}</div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setQueue((prev) => prev.filter((_, idx) => idx !== i))}
+                        className="text-rose-400 hover:text-rose-300 flex-shrink-0"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="space-y-2 flex flex-col-reverse">
+                <button
+                  type="button"
+                  onClick={() => setQueue([])}
+                  className="rounded-md bg-slate-700 px-3 py-2 text-xs font-medium hover:bg-slate-600 w-full"
+                >
+                  Clear
+                </button>
+                <button
+                  type="button"
+                  onClick={submitTurn}
+                  disabled={queue.length === 0}
+                  className="rounded-md bg-blue-600 px-3 py-2 text-xs font-medium hover:bg-blue-500 disabled:opacity-40 w-full"
+                >
+                  Confirm turn
+                </button>
+              </div>
+            </div>
+          )}
         </div>
-      </section>
 
-      {/* CENTER BAND — chakra/essence pool ──────────────────────────────── */}
-      <section className="flex items-center justify-between rounded-xl bg-slate-900/80 px-5 py-3 shadow-inner ring-1 ring-slate-800">
-        <span className="text-xs uppercase tracking-wider text-slate-500">Essence pool</span>
-        <EssenceBar pool={remainingPool} large />
-        <span className="text-xs text-slate-500">
-          {queue.length === 0
-            ? "no actions queued"
-            : `${queue.length}/3 queued`}
-        </span>
-      </section>
-
-      {/* PLAYER (bottom) ─────────────────────────────────────────────────── */}
-      <section
-        aria-label="Your team"
-        className="rounded-xl bg-gradient-to-t from-slate-900/80 to-slate-900/30 p-4 ring-1 ring-slate-800"
-      >
-        <SideHeader
-          label={`You · Side ${activePlayer.side}`}
-          essences={activePlayer.essences}
-          tone="emerald"
+        {/* RIGHT: OPPONENT */}
+        <BattleSide
+          title={`Opponent · Side ${opponent.side}`}
+          side="opponent"
+          characters={opponent.characters}
+          player={opponent}
+          charById={charById}
+          floatsByTarget={floatsByTarget}
+          isActive={false}
+          queued={new Set()}
+          selectedSkillCharId={selectedSkill?.character_id}
+          targetSide={targetSide}
+          onSkillClick={() => {}}
+          onTargetClick={targetSide === "enemy" ? onTargetClick : undefined}
         />
-        <div className="mt-3 grid grid-cols-3 gap-3">
-          {activePlayer.characters.map((c) => (
-            <CharacterPortrait
-              key={c.id}
-              character={c}
-              clickable={pending?.skill.target === "single_ally"}
-              highlighted={validTargetIds?.includes(c.id) ?? false}
-              queued={charactersAlreadyActing.has(c.id)}
-              floats={floatsByTarget.get(c.id) ?? []}
-              onClick={() => onTargetClick(c.id)}
-            />
-          ))}
-        </div>
-
-        {/* Skill rows aligned under each character ──────────────────────── */}
-        {!state.finished && (
-          <div className="mt-4 grid grid-cols-3 gap-3">
-            {activePlayer.characters.map((character) => {
-              const def = charById.get(character.id);
-              const stunned = character.statuses.some((s) => s.name === "stun");
-              const acting = charactersAlreadyActing.has(character.id);
-              const dead = character.hp <= 0;
-              return (
-                <SkillStack
-                  key={character.id}
-                  character={character}
-                  def={def}
-                  disabledReason={
-                    dead ? "down" : stunned ? "stunned" : acting ? "queued" : null
-                  }
-                  remainingPool={remainingPool}
-                  onSkillClick={onSkillClick}
-                />
-              );
-            })}
-          </div>
-        )}
-      </section>
-
-      {/* TARGET PROMPT ───────────────────────────────────────────────────── */}
-      {pending && (
-        <div className="rounded-xl bg-amber-500/10 px-4 py-3 text-sm text-amber-200 ring-1 ring-amber-500/40">
-          Pick a target for{" "}
-          <span className="font-semibold">{pending.skill.name}</span> — click a glowing portrait above.
-          <button
-            type="button"
-            onClick={() => setPending(null)}
-            className="ml-3 rounded border border-amber-500/40 px-2 py-0.5 text-xs hover:bg-amber-500/20"
-          >
-            cancel
-          </button>
-        </div>
-      )}
-
-      {/* ACTION QUEUE ────────────────────────────────────────────────────── */}
-      {!state.finished && (
-        <section className="rounded-xl bg-slate-900/80 p-4 ring-1 ring-slate-800">
-          <ActionQueue
-            queue={queue}
-            charById={charById}
-            onRemove={(idx) => setQueue((prev) => prev.filter((_, i) => i !== idx))}
-          />
-          <div className="mt-3 flex gap-3">
-            <button
-              type="button"
-              onClick={submitTurn}
-              disabled={queue.length === 0}
-              className="rounded-md bg-blue-600 px-5 py-2 font-medium hover:bg-blue-500 disabled:opacity-40"
-            >
-              Confirm turn
-            </button>
-            <button
-              type="button"
-              onClick={() => setQueue([])}
-              disabled={queue.length === 0}
-              className="rounded-md bg-slate-700 px-4 py-2 text-sm hover:bg-slate-600 disabled:opacity-40"
-            >
-              Clear queue
-            </button>
-          </div>
-        </section>
-      )}
-
-      {state.finished && (
-        <MatchSummaryCard state={state} events={events} onRematch={startMatch} />
-      )}
-
-      {/* EVENT LOG ──────────────────────────────────────────────────────── */}
-      <details className="rounded-xl bg-slate-900/80 px-4 py-3 text-sm ring-1 ring-slate-800">
-        <summary className="cursor-pointer text-xs font-semibold uppercase text-slate-400">
-          Event log ({events.length})
-        </summary>
-        <ul className="mt-2 max-h-60 space-y-1 overflow-y-auto rounded-md bg-slate-950 p-3 text-xs font-mono">
-          {events.slice(-50).map((e, i) => (
-            <li key={i}>
-              <span className="text-emerald-400">{e.kind}</span>{" "}
-              <span className="text-slate-500">{JSON.stringify(e.details)}</span>
-            </li>
-          ))}
-        </ul>
-      </details>
-
-      {error && <p className="text-sm text-red-400">{error}</p>}
-    </div>
-  );
-}
-
-// --------------------------------------------------------------------------- //
-// Sub-components                                                              //
-// --------------------------------------------------------------------------- //
-
-function SideHeader({
-  label,
-  essences,
-  tone,
-}: {
-  label: string;
-  essences: Partial<Record<Essence, number>>;
-  tone: "emerald" | "rose";
-}) {
-  const dot = tone === "emerald" ? "bg-emerald-400" : "bg-rose-400";
-  return (
-    <div className="flex items-center justify-between">
-      <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-slate-400">
-        <span className={`inline-block h-2 w-2 rounded-full ${dot}`} />
-        {label}
       </div>
-      <EssenceBar pool={essences} animated />
+
+      {error && <p className="text-sm text-red-400 fixed bottom-4 left-4">{error}</p>}
+      </div>
     </div>
   );
 }
 
-function EssenceBar({
-  pool,
-  large = false,
-  animated = false,
+// ============================================================================
+// COMPONENTS
+// ============================================================================
+
+function BattleSide({
+  title,
+  side = "player",
+  characters,
+  charById,
+  floatsByTarget,
+  queued,
+  selectedSkillCharId,
+  targetSide,
+  onSkillClick,
+  onTargetClick,
+  remainingPool,
+  isActive,
 }: {
-  pool: Partial<Record<Essence, number>>;
-  large?: boolean;
-  animated?: boolean;
+  title: string;
+  side?: "player" | "opponent";
+  characters: CharacterState[];
+  player?: PlayerState;
+  charById: Map<string, Character>;
+  floatsByTarget: Map<string, FloatingNumber[]>;
+  queued: Set<string>;
+  selectedSkillCharId?: string;
+  targetSide?: "enemy" | "ally" | "self" | null;
+  onSkillClick: (character: CharacterState, skill: Skill) => void;
+  onTargetClick?: (targetId: string) => void;
+  remainingPool?: Partial<Record<Essence, number>>;
+  isActive?: boolean;
 }) {
-  const items = ESSENCE_ORDER.filter((k) => (pool[k] ?? 0) > 0);
-  if (items.length === 0) {
-    return <span className="text-xs italic text-slate-600">empty</span>;
-  }
+  const tone = title.includes("Opponent") ? "rose" : "emerald";
+  const bgGradient = tone === "opponent" ? "from-slate-900/60 to-slate-950/60" : "from-slate-900/60 to-slate-950/60";
+  const isOpponentSide = side === "opponent";
+
   return (
-    <div className={`flex items-center gap-2 ${large ? "text-base" : "text-xs"}`}>
-      {items.map((k) => {
-        const style = ESSENCE_STYLE[k];
-        const count = pool[k]!;
-        const className = `inline-flex items-center gap-1 rounded-full px-2 py-0.5 ring-1 ${style.chip}`;
-        const inner = (
-          <>
-            <span className={`inline-block h-2 w-2 rounded-full ${style.dot}`} />
-            <span className="font-mono font-semibold">{count}</span>
-            <span className="opacity-70">{style.label}</span>
-          </>
-        );
-        // Re-keying by count makes framer-motion replay the entrance whenever
-        // the server pushes a new pool — reads like "chakra rolled in".
-        if (animated) {
-          return (
-            <motion.span
-              key={`${k}-${count}`}
-              initial={{ scale: 0.4, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              transition={{ type: "spring", stiffness: 420, damping: 20 }}
-              className={className}
-              title={k}
-            >
-              {inner}
-            </motion.span>
+    <section className={`flex-1 flex flex-col bg-gradient-to-br ${bgGradient} rounded-lg ring-1 ring-slate-800 p-6 overflow-hidden`}>
+      <div className="flex items-center gap-2 mb-4">
+        <span className={`inline-block h-2 w-2 rounded-full ${tone === "opponent" ? "bg-rose-400" : "bg-emerald-400"}`} />
+        <h2 className="text-sm font-bold uppercase tracking-wider text-slate-300">{title}</h2>
+      </div>
+
+      <div className="flex-1 flex flex-col justify-center gap-4">
+        {characters.map((c) => {
+          const def = charById.get(c.id);
+          const isQueued = queued.has(c.id);
+          const stunned = c.statuses.some((s) => s.name === "stun");
+          const dead = c.hp <= 0;
+
+          const isDimmed = !!targetSide && !dead && (
+            isOpponentSide
+              ? targetSide === "ally" || targetSide === "self"
+              : targetSide === "enemy" || (targetSide === "self" && c.id !== selectedSkillCharId)
           );
-        }
-        return (
-          <span key={k} className={className} title={k}>
-            {inner}
-          </span>
-        );
-      })}
-    </div>
+          const isClickable = !!onTargetClick && !dead &&
+            (targetSide !== "self" || c.id === selectedSkillCharId);
+          return (
+            <div key={c.id} className="flex-1 flex flex-col gap-2">
+              <CharacterPortrait
+                character={c}
+                floats={floatsByTarget.get(c.id) ?? []}
+                queued={isQueued}
+                isOpponent={tone === "rose"}
+                clickable={isClickable}
+                dimmed={isDimmed}
+                onClick={isClickable ? () => onTargetClick(c.id) : undefined}
+              />
+
+              {remainingPool && def && !dead && isActive && !isQueued && (
+                <SkillGrid character={c} def={def} remainingPool={remainingPool} stunned={stunned} onSkillClick={onSkillClick} />
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </section>
   );
 }
 
 function CharacterPortrait({
   character,
+  floats = [],
+  queued = false,
   isOpponent = false,
   clickable = false,
-  highlighted = false,
-  queued = false,
-  floats = [],
+  dimmed = false,
   onClick,
 }: {
   character: CharacterState;
+  floats?: FloatingNumber[];
+  queued?: boolean;
   isOpponent?: boolean;
   clickable?: boolean;
-  highlighted?: boolean;
-  queued?: boolean;
-  floats?: FloatingNumber[];
+  dimmed?: boolean;
   onClick?: () => void;
 }) {
   const dead = character.hp <= 0;
   const ratio = character.hp_max > 0 ? character.hp / character.hp_max : 0;
   const hpColor = ratio > 0.6 ? "bg-emerald-500" : ratio > 0.3 ? "bg-amber-400" : "bg-red-500";
-
-  // First letter as a portrait stand-in until we wire real art.
-  const initial = character.name.charAt(0).toUpperCase();
-  const interactive = clickable && highlighted && !dead;
-  // Try real art first; fall back to the initial if the file isn't there.
-  // Files live under web/public/portraits/<id>.webp; missing ones quietly 404.
   const [artBroken, setArtBroken] = useState(false);
-  const portraitUrl = `/portraits/${character.id}.webp`;
-
-  const handle = interactive ? onClick : undefined;
-
-  // Shake whenever a new damage float arrives for this character.
+  const portraitUrl = `/portraits/${character.id}.jpg`;
   const shakeControls = useAnimationControls();
   const lastShakeIdRef = useRef<number | null>(null);
+
   useEffect(() => {
     const damages = floats.filter((f) => f.kind === "damage");
     if (damages.length === 0) return;
@@ -797,34 +763,28 @@ function CharacterPortrait({
   return (
     <motion.div
       animate={shakeControls}
-      role={interactive ? "button" : undefined}
-      onClick={handle}
+      onClick={clickable && !dead ? onClick : undefined}
       className={[
         "relative rounded-lg p-3 ring-1 transition",
-        dead ? "bg-slate-950/60 ring-slate-900 opacity-50" : "bg-slate-800 ring-slate-700",
-        interactive ? "cursor-pointer ring-amber-400 ring-2 hover:bg-slate-700" : "",
+        dead ? "bg-slate-950/60 ring-slate-900 opacity-50" : "bg-slate-800/90 ring-slate-700",
         queued ? "ring-emerald-500/70 ring-2" : "",
+        clickable && !dead ? "cursor-pointer ring-2 ring-amber-400 hover:ring-amber-300 hover:brightness-110" : "",
       ].join(" ")}
     >
       <FloatingNumbers items={floats} />
+      {dimmed && <div className="absolute inset-0 rounded-lg bg-slate-950/65 z-10 pointer-events-none" />}
       <div className="flex items-center gap-3">
         <div
           className={[
-            "flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-md text-xl font-bold",
+            "flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-md text-xl font-bold",
             isOpponent ? "bg-rose-900/60 text-rose-200" : "bg-emerald-900/60 text-emerald-200",
             dead ? "grayscale" : "",
           ].join(" ")}
         >
           {artBroken ? (
-            initial
+            character.name.charAt(0).toUpperCase()
           ) : (
-            <img
-              src={portraitUrl}
-              alt=""
-              draggable={false}
-              onError={() => setArtBroken(true)}
-              className="h-full w-full object-cover"
-            />
+            <img src={portraitUrl} alt="" draggable={false} onError={() => setArtBroken(true)} className="h-full w-full object-cover" />
           )}
         </div>
         <div className="min-w-0 flex-1">
@@ -835,27 +795,16 @@ function CharacterPortrait({
             </span>
           </div>
           <div className="mt-1 h-2 overflow-hidden rounded-full bg-slate-900">
-            <div
-              className={`h-full transition-all ${hpColor}`}
-              style={{ width: `${Math.max(0, Math.min(100, ratio * 100))}%` }}
-            />
+            <div className={`h-full transition-all ${hpColor}`} style={{ width: `${Math.max(0, Math.min(100, ratio * 100))}%` }} />
           </div>
-          {character.shield > 0 && (
-            <div className="mt-1 text-[10px] font-semibold text-cyan-300">
-              + shield {character.shield}
-            </div>
-          )}
+          {character.shield > 0 && <div className="mt-1 text-[10px] font-semibold text-cyan-300">+ shield {character.shield}</div>}
         </div>
       </div>
 
       {character.statuses.length > 0 && (
         <div className="mt-2 flex flex-wrap gap-1">
           {character.statuses.map((s, i) => (
-            <span
-              key={i}
-              className="rounded bg-slate-900/70 px-1.5 py-0.5 text-[10px] uppercase tracking-wider text-slate-300 ring-1 ring-slate-700"
-              title={`${s.name} (${s.duration}t · ${s.value})`}
-            >
+            <span key={i} className="rounded bg-slate-900/70 px-1.5 py-0.5 text-[10px] uppercase tracking-wider text-slate-300 ring-1 ring-slate-700">
               {s.name}
               <span className="ml-1 text-slate-500">{s.duration}</span>
             </span>
@@ -863,76 +812,112 @@ function CharacterPortrait({
         </div>
       )}
 
-      {dead && (
-        <div className="absolute inset-0 grid place-items-center bg-slate-950/40 text-xs font-bold uppercase tracking-widest text-red-400">
-          KO
-        </div>
-      )}
+      {dead && <div className="absolute inset-0 grid place-items-center bg-slate-950/40 text-xs font-bold uppercase tracking-widest text-red-400">KO</div>}
     </motion.div>
   );
 }
 
-function SkillStack({
+function SkillGrid({
   character,
   def,
-  disabledReason,
   remainingPool,
+  stunned,
   onSkillClick,
 }: {
   character: CharacterState;
-  def: Character | undefined;
-  disabledReason: string | null;
+  def: Character;
   remainingPool: Partial<Record<Essence, number>>;
+  stunned: boolean;
   onSkillClick: (character: CharacterState, skill: Skill) => void;
 }) {
-  if (!def) {
-    return <div className="rounded-lg bg-slate-900/40 p-2 text-xs text-slate-600">…</div>;
-  }
+  const DODGE_SKILL: Skill = {
+    id: "dodge",
+    name: "Dodge",
+    kind: "instant",
+    cost: { generic: 1 },
+    cooldown: 4,
+    duration: 0,
+    target: "self",
+    effects: [{ kind: "invulnerable", value: 0, duration: 1, damage_class: null, status: null, piercing: false, true: false }],
+  };
+  const allSkills = [...def.skills, DODGE_SKILL];
+
   return (
-    <div className="rounded-lg bg-slate-900/60 p-2 ring-1 ring-slate-800">
-      {disabledReason && (
-        <div className="mb-1 text-center text-[10px] font-semibold uppercase tracking-wider text-amber-400">
-          {disabledReason}
-        </div>
-      )}
-      <div className="flex flex-col gap-1.5">
-        {def.skills.map((skill) => {
-          const cd = character.cooldowns[skill.id] ?? 0;
-          const affordable = computePayment(skill.cost, remainingPool) !== null;
-          const disabled = !!disabledReason || cd > 0 || !affordable;
-          return (
-            <button
-              key={skill.id}
-              type="button"
-              onClick={() => onSkillClick(character, skill)}
-              disabled={disabled}
-              className={[
-                "group flex items-center justify-between rounded-md px-2 py-1.5 text-left text-xs transition",
-                disabled
-                  ? "bg-slate-900/60 text-slate-500"
-                  : "bg-slate-800 text-slate-100 hover:bg-slate-700 ring-1 ring-slate-700",
-              ].join(" ")}
-              title={describeSkill(skill)}
-            >
-              <span className="truncate font-medium">{skill.name}</span>
-              <span className="ml-2 flex shrink-0 items-center gap-1">
-                {cd > 0 ? (
-                  <span className="rounded bg-slate-950 px-1 font-mono text-[10px] text-amber-300">
-                    {cd}
-                  </span>
-                ) : (
-                  <CostPips cost={skill.cost} />
-                )}
-              </span>
-            </button>
-          );
-        })}
-      </div>
+    <div className="grid grid-cols-4 gap-1">
+      {allSkills.map((skill) => {
+        const cd = character.cooldowns[skill.id] ?? 0;
+        const affordable = computePayment(skill.cost, remainingPool) !== null;
+        const disabled = stunned || cd > 0 || !affordable;
+
+        const iconUrl = skill.id === "dodge"
+          ? `/skills/dodge.png`
+          : `/skills/${character.id}_${skill.id}.png`;
+
+        return (
+          <button
+            key={skill.id}
+            type="button"
+            onClick={() => onSkillClick(character, skill)}
+            disabled={disabled}
+            title={skill.name}
+            className={[
+              "relative rounded overflow-hidden transition w-full aspect-[418/235]",
+              disabled
+                ? "opacity-40 cursor-not-allowed grayscale"
+                : "ring-1 ring-slate-600 hover:ring-amber-400 hover:scale-105 cursor-pointer",
+            ].join(" ")}
+          >
+            {/* Icon image */}
+            <img
+              src={iconUrl}
+              alt={skill.name}
+              className="absolute inset-0 w-full h-full object-cover"
+              onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
+            />
+            {/* Skill name overlay at bottom */}
+            <div className="absolute bottom-0 inset-x-0 bg-slate-950/75 text-[9px] leading-tight text-center text-slate-200 px-0.5 py-px truncate">
+              {skill.name}
+            </div>
+            {/* Cost pips overlay at top-left */}
+            <div className="absolute top-0.5 left-0.5 flex gap-px">
+              <CostPips cost={skill.cost} size="small" />
+            </div>
+            {/* Cooldown badge */}
+            {cd > 0 && (
+              <div className="absolute top-0.5 right-0.5 bg-rose-600 rounded-full w-5 h-5 flex items-center justify-center text-[9px] font-bold text-white shadow">
+                {cd}
+              </div>
+            )}
+          </button>
+        );
+      })}
     </div>
   );
 }
 
-function CostPips({ cost }: { cost: Partial<Record<Essence, number>> }) {
+function EssenceBar({ pool, large = false }: { pool: Partial<Record<Essence, number>>; large?: boolean }) {
+  const items = ESSENCE_ORDER.filter((k) => (pool[k] ?? 0) > 0);
+  if (items.length === 0) {
+    return <span className={`${large ? "text-base" : "text-xs"} italic text-slate-600`}>empty</span>;
+  }
+  return (
+    <div className={`flex items-center gap-2 flex-wrap ${large ? "text-base" : "text-xs"}`}>
+      {items.map((k) => {
+        const style = ESSENCE_STYLE[k];
+        const count = pool[k]!;
+        return (
+          <span key={k} className={`inline-flex items-center gap-1 rounded-full px-2 py-1 ring-1 ${style.chip}`} title={k}>
+            <span className={`inline-block h-2 w-2 rounded-full ${style.dot}`} />
+            <span className="font-mono font-semibold">{count}</span>
+            <span className="opacity-70 text-xs">{style.label}</span>
+          </span>
+        );
+      })}
+    </div>
+  );
+}
+
+function CostPips({ cost, size = "normal" }: { cost: Partial<Record<Essence, number>>; size?: "small" | "normal" }) {
   const pips: { color: string; key: string }[] = [];
   for (const k of ESSENCE_ORDER) {
     const n = cost[k] ?? 0;
@@ -943,57 +928,34 @@ function CostPips({ cost }: { cost: Partial<Record<Essence, number>> }) {
     pips.push({ color: ESSENCE_STYLE.generic.dot, key: `g${i}` });
   }
   if (pips.length === 0) {
-    return <span className="text-[10px] italic text-slate-500">free</span>;
+    return <span className="text-[9px] italic text-slate-500">free</span>;
   }
+  const pipSize = size === "small" ? "h-1.5 w-1.5" : "h-2 w-2";
   return (
     <span className="flex items-center gap-0.5">
       {pips.map((p) => (
-        <span key={p.key} className={`inline-block h-2 w-2 rounded-full ${p.color}`} />
+        <span key={p.key} className={`inline-block rounded-full ${p.color} ${pipSize}`} />
       ))}
     </span>
   );
 }
 
-function ActionQueue({
-  queue,
-  charById,
-  onRemove,
-}: {
-  queue: QueuedAction[];
-  charById: Map<string, Character>;
-  onRemove: (idx: number) => void;
-}) {
-  if (queue.length === 0) {
-    return <p className="text-xs italic text-slate-500">No actions queued.</p>;
-  }
+function FloatingNumbers({ items }: { items: FloatingNumber[] }) {
   return (
-    <ol className="flex flex-wrap gap-2">
-      {queue.map((action, i) => {
-        const def = charById.get(action.character_id);
-        const skill = def?.skills.find((s) => s.id === action.skill_id);
-        return (
-          <li
-            key={i}
-            className="flex items-center gap-2 rounded-full bg-slate-800 px-3 py-1 text-xs ring-1 ring-slate-700"
-          >
-            <span className="font-semibold">{def?.name ?? action.character_id}</span>
-            <span className="text-slate-400">→</span>
-            <span>{skill?.name ?? action.skill_id}</span>
-            {action.target_ids.length > 0 && (
-              <span className="text-slate-500">@ {action.target_ids.join(", ")}</span>
-            )}
-            <button
-              type="button"
-              onClick={() => onRemove(i)}
-              className="ml-1 text-rose-400 hover:text-rose-300"
-              aria-label="remove"
-            >
-              ×
-            </button>
-          </li>
-        );
-      })}
-    </ol>
+    <div className="pointer-events-none absolute inset-0">
+      {items.map((item) => (
+        <motion.div
+          key={item.id}
+          initial={{ opacity: 1, y: 0 }}
+          animate={{ opacity: 0, y: -60 }}
+          transition={{ duration: 1.4, ease: "easeOut" }}
+          className={`absolute text-sm font-bold ${item.kind === "damage" ? "text-rose-400" : "text-emerald-400"}`}
+          style={{ left: "50%", top: "50%" }}
+        >
+          {item.value}
+        </motion.div>
+      ))}
+    </div>
   );
 }
 
@@ -1005,14 +967,9 @@ function ConnectionDot({ status }: { status: "connecting" | "open" | "closed" })
         ? { color: "bg-amber-400", label: "connecting", pulse: true }
         : { color: "bg-red-500", label: "offline", pulse: false };
   return (
-    <span
-      className="inline-flex items-center gap-1.5 rounded-full bg-slate-950/60 px-2 py-0.5 text-[10px] uppercase tracking-wider text-slate-400 ring-1 ring-slate-800"
-      title={`WebSocket ${status}`}
-    >
+    <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-950/60 px-2 py-0.5 text-[10px] uppercase tracking-wider text-slate-400 ring-1 ring-slate-800">
       <span className="relative flex h-2 w-2">
-        {profile.pulse && (
-          <span className={`absolute inline-flex h-full w-full animate-ping rounded-full opacity-60 ${profile.color}`} />
-        )}
+        {profile.pulse && <span className={`absolute inline-flex h-full w-full animate-ping rounded-full opacity-60 ${profile.color}`} />}
         <span className={`relative inline-flex h-2 w-2 rounded-full ${profile.color}`} />
       </span>
       {profile.label}
@@ -1020,15 +977,7 @@ function ConnectionDot({ status }: { status: "connecting" | "open" | "closed" })
   );
 }
 
-function VsSplash({
-  visible,
-  teamA,
-  teamB,
-}: {
-  visible: boolean;
-  teamA: CharacterState[];
-  teamB: CharacterState[];
-}) {
+function VsSplash({ visible, teamA, teamB }: { visible: boolean; teamA: CharacterState[]; teamB: CharacterState[] }) {
   return (
     <AnimatePresence>
       {visible && (
@@ -1040,18 +989,9 @@ function VsSplash({
           transition={{ duration: 0.25 }}
           className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm"
         >
-          <motion.div
-            initial={{ x: -180, opacity: 0 }}
-            animate={{ x: 0, opacity: 1 }}
-            transition={{ delay: 0.05, type: "spring", stiffness: 200, damping: 18 }}
-            className="text-right"
-          >
-            <div className="text-[10px] font-semibold uppercase tracking-[0.4em] text-emerald-400">
-              Side A
-            </div>
-            <div className="text-3xl font-bold text-emerald-100">
-              {teamA.map((c) => c.name).join(" · ")}
-            </div>
+          <motion.div initial={{ x: -180, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ delay: 0.05, type: "spring", stiffness: 200, damping: 18 }} className="text-right">
+            <div className="text-[10px] font-semibold uppercase tracking-[0.4em] text-emerald-400">Side A</div>
+            <div className="text-3xl font-bold text-emerald-100">{teamA.map((c) => c.name).join(" · ")}</div>
           </motion.div>
 
           <motion.div
@@ -1063,18 +1003,9 @@ function VsSplash({
             VS
           </motion.div>
 
-          <motion.div
-            initial={{ x: 180, opacity: 0 }}
-            animate={{ x: 0, opacity: 1 }}
-            transition={{ delay: 0.05, type: "spring", stiffness: 200, damping: 18 }}
-            className="text-left"
-          >
-            <div className="text-[10px] font-semibold uppercase tracking-[0.4em] text-rose-400">
-              Side B
-            </div>
-            <div className="text-3xl font-bold text-rose-100">
-              {teamB.map((c) => c.name).join(" · ")}
-            </div>
+          <motion.div initial={{ x: 180, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ delay: 0.05, type: "spring", stiffness: 200, damping: 18 }} className="text-left">
+            <div className="text-[10px] font-semibold uppercase tracking-[0.4em] text-rose-400">Side B</div>
+            <div className="text-3xl font-bold text-rose-100">{teamB.map((c) => c.name).join(" · ")}</div>
           </motion.div>
         </motion.div>
       )}
@@ -1082,255 +1013,78 @@ function VsSplash({
   );
 }
 
-function MatchSummaryCard({
-  state,
-  events,
-  onRematch,
-}: {
-  state: MatchState;
-  events: MatchEvent[];
-  onRematch: () => void;
-}) {
-  const teamA = state.a.characters.map((c) => c.id);
-  const teamB = state.b.characters.map((c) => c.id);
-  const aSet = new Set(teamA);
-  const bSet = new Set(teamB);
+// ============================================================================
+// HELPERS
+// ============================================================================
 
-  const stats = computePerCharacterStats(events, aSet, bSet);
-  const totalsA = aggregate(stats, teamA);
-  const totalsB = aggregate(stats, teamB);
-  const kosA = state.a.characters.filter((c) => c.hp <= 0).length;
-  const kosB = state.b.characters.filter((c) => c.hp <= 0).length;
-
-  const winner = state.winner;
-  const banner =
-    winner === null
-      ? { label: "Draw", tone: "from-slate-600 to-slate-800", text: "text-slate-100" }
-      : winner === "A"
-        ? { label: "Side A wins", tone: "from-emerald-600 to-emerald-800", text: "text-emerald-50" }
-        : { label: "Side B wins", tone: "from-rose-600 to-rose-800", text: "text-rose-50" };
-
-  return (
-    <motion.section
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3 }}
-      className="overflow-hidden rounded-xl bg-slate-900/90 ring-1 ring-slate-800"
-    >
-      <div
-        className={`bg-gradient-to-r ${banner.tone} px-6 py-5 text-center ${banner.text}`}
-      >
-        <div className="text-xs uppercase tracking-[0.3em] opacity-80">Match finished</div>
-        <div className="mt-1 text-3xl font-bold">{banner.label}</div>
-      </div>
-
-      <div className="grid gap-4 p-5 md:grid-cols-2">
-        <SummarySide
-          title="Side A"
-          totals={totalsA}
-          kos={kosA}
-          isWinner={winner === "A"}
-          characters={state.a.characters}
-          stats={stats}
-          tone="emerald"
-        />
-        <SummarySide
-          title="Side B"
-          totals={totalsB}
-          kos={kosB}
-          isWinner={winner === "B"}
-          characters={state.b.characters}
-          stats={stats}
-          tone="rose"
-        />
-      </div>
-
-      <div className="flex justify-end gap-3 border-t border-slate-800 px-5 py-3">
-        <button
-          type="button"
-          onClick={onRematch}
-          className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium hover:bg-emerald-500"
-        >
-          Start new match
-        </button>
-      </div>
-    </motion.section>
-  );
+function targetLabel(target: string): string {
+  switch (target) {
+    case "single_enemy": return "one enemy";
+    case "all_enemies": return "all enemies";
+    case "single_ally": return "one ally";
+    case "all_allies": return "all allies";
+    case "self": return "this character";
+    default: return "the target";
+  }
 }
 
-function SummarySide({
-  title,
-  totals,
-  kos,
-  isWinner,
-  characters,
-  stats,
-  tone,
-}: {
-  title: string;
-  totals: { dealt: number; taken: number; healed: number };
-  kos: number;
-  isWinner: boolean;
-  characters: CharacterState[];
-  stats: Map<string, { dealt: number; taken: number; healed: number }>;
-  tone: "emerald" | "rose";
-}) {
-  const accent = tone === "emerald" ? "text-emerald-400" : "text-rose-400";
-  return (
-    <div className="rounded-lg bg-slate-950/40 p-4 ring-1 ring-slate-800">
-      <div className="mb-3 flex items-baseline justify-between">
-        <h3 className={`text-sm font-bold uppercase tracking-wider ${accent}`}>
-          {title}
-          {isWinner && (
-            <span className="ml-2 rounded bg-amber-500/20 px-1.5 py-0.5 text-[10px] text-amber-300 ring-1 ring-amber-500/40">
-              winner
-            </span>
-          )}
-        </h3>
-        <span className="text-xs text-slate-500">{kos} KO</span>
-      </div>
-      <dl className="grid grid-cols-3 gap-2 text-center text-xs">
-        <Stat label="dmg dealt" value={totals.dealt} />
-        <Stat label="dmg taken" value={totals.taken} />
-        <Stat label="healing" value={totals.healed} />
-      </dl>
-      <ul className="mt-4 space-y-1.5">
-        {characters.map((c) => {
-          const s = stats.get(c.id) ?? { dealt: 0, taken: 0, healed: 0 };
-          const dead = c.hp <= 0;
-          return (
-            <li
-              key={c.id}
-              className={`flex items-center justify-between rounded bg-slate-900/60 px-2 py-1.5 text-xs ${
-                dead ? "opacity-50" : ""
-              }`}
-            >
-              <span className="font-medium">
-                {c.name}
-                {dead && <span className="ml-2 text-[10px] text-red-400">KO</span>}
-              </span>
-              <span className="flex items-center gap-3 font-mono text-slate-400">
-                <span title="damage dealt">{s.dealt}d</span>
-                <span title="damage taken">{s.taken}t</span>
-                <span title="healing done">{s.healed}h</span>
-              </span>
-            </li>
-          );
-        })}
-      </ul>
-    </div>
-  );
-}
-
-function Stat({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="rounded bg-slate-900 px-2 py-1.5 ring-1 ring-slate-800">
-      <div className="font-mono text-base font-bold tabular-nums text-slate-100">{value}</div>
-      <div className="text-[10px] uppercase tracking-wider text-slate-500">{label}</div>
-    </div>
-  );
-}
-
-function FloatingNumbers({ items }: { items: FloatingNumber[] }) {
-  return (
-    <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex justify-center">
-      <AnimatePresence>
-        {items.map((f) => (
-          <motion.span
-            key={f.id}
-            initial={{ y: 0, opacity: 0, scale: 0.7 }}
-            animate={{ y: -36, opacity: 1, scale: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 1.2, ease: "easeOut" }}
-            className={[
-              "absolute select-none text-lg font-extrabold drop-shadow",
-              f.kind === "damage" ? "text-red-400" : "text-emerald-300",
-            ].join(" ")}
-          >
-            {f.kind === "damage" ? "-" : "+"}
-            {f.value}
-            {f.tick && (
-              <span className="ml-1 align-middle text-[10px] uppercase opacity-80">
-                {f.tick}
-              </span>
-            )}
-          </motion.span>
-        ))}
-      </AnimatePresence>
-    </div>
-  );
-}
-
-// --------------------------------------------------------------------------- //
-// Helpers                                                                     //
-// --------------------------------------------------------------------------- //
-
-function targetCandidates(
-  skill: Skill,
-  active: PlayerState,
-  opponent: PlayerState,
-): CharacterState[] {
-  const pool = skill.target === "single_enemy" ? opponent : active;
-  return pool.characters.filter((c) => c.hp > 0);
+function buildSkillDescription(skill: Skill): string {
+  const parts: string[] = [];
+  for (const ef of skill.effects) {
+    const tgt = targetLabel(skill.target);
+    switch (ef.kind) {
+      case "damage": {
+        const cls = ef.damage_class ? `${ef.damage_class} ` : "";
+        let s = `Deals ${ef.value} ${cls}damage to ${tgt}.`;
+        if (ef.piercing) s += " Ignores damage reduction.";
+        parts.push(s);
+        break;
+      }
+      case "heal":
+        parts.push(`Restores ${ef.value} HP to ${tgt}.`);
+        break;
+      case "status":
+        parts.push(
+          `Inflicts ${ef.status ?? "a status effect"} on ${tgt}` +
+            (ef.duration > 0 ? ` for ${ef.duration} turn${ef.duration !== 1 ? "s" : ""}` : "") +
+            "."
+        );
+        break;
+      case "destructible_shield":
+        parts.push(`Grants ${tgt} ${ef.value} points of destructible defense.`);
+        break;
+      case "invulnerable":
+        parts.push(
+          `Makes ${tgt} invulnerable for ${ef.duration} turn${ef.duration !== 1 ? "s" : ""}.`
+        );
+        break;
+      case "damage_reduction":
+        parts.push(
+          `Reduces damage taken by ${tgt} by ${ef.value}` +
+            (ef.duration > 0 ? ` for ${ef.duration} turn${ef.duration !== 1 ? "s" : ""}` : "") +
+            "."
+        );
+        break;
+      case "damage_buff":
+        parts.push(
+          `Increases damage dealt by ${tgt} by ${ef.value}` +
+            (ef.duration > 0 ? ` for ${ef.duration} turn${ef.duration !== 1 ? "s" : ""}` : "") +
+            "."
+        );
+        break;
+      case "essence_drain":
+        parts.push(`Drains ${ef.value} essence from ${tgt}.`);
+        break;
+      case "remove_afflictions":
+        parts.push(`Removes all afflictions from ${tgt}.`);
+        break;
+    }
+  }
+  if (skill.cooldown > 0)
+    parts.push(`Enters a ${skill.cooldown}-turn cooldown after use.`);
+  return parts.join(" ") || "No description available.";
 }
 
 function describeSkill(skill: Skill): string {
-  const cost = Object.entries(skill.cost)
-    .filter(([, v]) => (v ?? 0) > 0)
-    .map(([k, v]) => `${v}${k[0]}`)
-    .join("+") || "free";
-  return `${skill.name} · ${cost} · CD ${skill.cooldown} · ${skill.target}`;
-}
-
-interface CharStats {
-  dealt: number;
-  taken: number;
-  healed: number;
-}
-
-// Same shape as the server's summarize_events: only credit damage/heal to a
-// character if the source resolves to a real player character (filters out
-// "poison", "arena", "drained_status", etc.).
-function computePerCharacterStats(
-  events: MatchEvent[],
-  aSet: Set<string>,
-  bSet: Set<string>,
-): Map<string, CharStats> {
-  const out = new Map<string, CharStats>();
-  const bump = (id: string, key: keyof CharStats, value: number) => {
-    let row = out.get(id);
-    if (!row) {
-      row = { dealt: 0, taken: 0, healed: 0 };
-      out.set(id, row);
-    }
-    row[key] += value;
-  };
-  const isCharacter = (s: unknown): s is string =>
-    typeof s === "string" && (aSet.has(s) || bSet.has(s));
-
-  for (const e of events) {
-    const value = e.details.value;
-    if (typeof value !== "number" || value <= 0) continue;
-    const source = e.details.source;
-    const target = e.details.target;
-    if (e.kind === "damage") {
-      if (isCharacter(source)) bump(source, "dealt", value);
-      if (isCharacter(target)) bump(target, "taken", value);
-    } else if (e.kind === "heal") {
-      if (isCharacter(source)) bump(source, "healed", value);
-    }
-  }
-  return out;
-}
-
-function aggregate(stats: Map<string, CharStats>, ids: string[]): CharStats {
-  const total: CharStats = { dealt: 0, taken: 0, healed: 0 };
-  for (const id of ids) {
-    const row = stats.get(id);
-    if (!row) continue;
-    total.dealt += row.dealt;
-    total.taken += row.taken;
-    total.healed += row.healed;
-  }
-  return total;
+  return buildSkillDescription(skill);
 }

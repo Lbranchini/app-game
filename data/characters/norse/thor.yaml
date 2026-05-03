@@ -13,6 +13,8 @@ skills:
     cost: { vigor: 1, spirit: 1 }
     cooldown: 0
     target: single_enemy
+    description: "Thor hurls Mjolnir at target enemy with the force of a
+      thunderstorm, dealing 25 physical damage."
     effects:
       - { kind: damage, value: 25, damage_class: physical }
 
@@ -22,6 +24,8 @@ skills:
     cost: { spirit: 2 }
     cooldown: 2
     target: all_enemies
+    description: "Thor raises his hammer and calls a bolt of lightning down on all
+      enemies, dealing 18 magical damage to each."
     effects:
       - { kind: damage, value: 18, damage_class: magical }
 
@@ -31,6 +35,8 @@ skills:
     cost: { spirit: 3, generic: 1 }
     cooldown: 5
     target: all_enemies
+    description: "Thor unleashes the full force of Ragnarok upon all enemies,
+      dealing 35 piercing magical damage and leaving them disarmed for 1 turn."
     effects:
       - { kind: damage, value: 35, damage_class: magical, piercing: true }
       - { kind: status, status: disarm, duration: 1, value: 0 }

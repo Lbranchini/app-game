@@ -14,6 +14,8 @@ skills:
     cost: { mind: 1 }
     cooldown: 0
     target: single_enemy
+    description: "Athena channels divine wisdom through her spear, dealing 15
+      magical damage to target enemy."
     effects:
       - { kind: damage, value: 15, damage_class: magical }
 
@@ -23,6 +25,8 @@ skills:
     cost: { mind: 1, generic: 1 }
     cooldown: 2
     target: single_ally
+    description: "Athena grants her strategic counsel to target ally, reducing all
+      damage they receive by 15 for 2 turns."
     effects:
       - { kind: damage_reduction, value: 15, duration: 2 }
 
@@ -32,5 +36,7 @@ skills:
     cost: { mind: 2, generic: 2 }
     cooldown: 5
     target: all_allies
+    description: "Athena raises the legendary Aegis, enveloping all allies in divine
+      protection and granting each a 25-point destructible barrier."
     effects:
       - { kind: destructible_shield, value: 25 }

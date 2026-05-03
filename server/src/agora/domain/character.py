@@ -43,6 +43,7 @@ class Skill(BaseModel):
     duration: Annotated[int, Field(ge=0)] = 0
     target: TargetKind
     effects: list[Effect]
+    description: str = ""
 
 
 class Character(BaseModel):

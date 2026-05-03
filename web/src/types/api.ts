@@ -52,6 +52,7 @@ export interface Skill {
   duration: number;
   target: TargetKind;
   effects: Effect[];
+  description?: string;
 }
 
 export interface Character {

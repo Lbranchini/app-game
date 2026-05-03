@@ -13,6 +13,7 @@ skills:
     cost: { spirit: 1 }
     cooldown: 0
     target: single_ally
+    description: "Isis gently lays her sacred hands on target ally, restoring 20 HP."
     effects:
       - { kind: heal, value: 20 }
 
@@ -22,6 +23,8 @@ skills:
     cost: { spirit: 1, generic: 1 }
     cooldown: 2
     target: single_ally
+    description: "Isis wraps her divine wings around target ally, healing them for
+      15 HP and dispelling all afflictions."
     effects:
       - { kind: heal, value: 15 }
       - { kind: remove_afflictions }
@@ -32,6 +35,9 @@ skills:
     cost: { spirit: 2, generic: 2 }
     cooldown: 6
     target: single_ally
+    description: "Isis channels the full power of her ancient magic upon target
+      ally, healing them for 50 HP, removing all afflictions, and granting
+      regeneration of 10 HP per turn for 2 turns."
     effects:
       - { kind: heal, value: 50 }
       - { kind: remove_afflictions }

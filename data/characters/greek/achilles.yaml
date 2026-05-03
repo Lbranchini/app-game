@@ -14,6 +14,8 @@ skills:
     cost: { vigor: 1 }
     cooldown: 0
     target: single_enemy
+    description: "Achilles hurls his legendary spear at target enemy, dealing 20
+      physical damage."
     effects:
       - { kind: damage, value: 20, damage_class: physical }
 
@@ -23,6 +25,9 @@ skills:
     cost: { vigor: 2 }
     cooldown: 2
     target: single_enemy
+    description: "Achilles leads his Myrmidons in a devastating charge, dealing 35
+      physical damage to target enemy and causing them to bleed for 10 damage
+      per turn for 2 turns."
     effects:
       - { kind: damage, value: 35, damage_class: physical }
       - { kind: status, status: bleed, duration: 2, value: 10 }
@@ -34,6 +39,8 @@ skills:
     cooldown: 4
     duration: 3
     target: self
+    description: "Achilles channels the fury of his bloodline, increasing his damage
+      by 15 and reducing all damage he takes by 10 for 3 turns."
     effects:
       - { kind: damage_buff, value: 15, duration: 3 }
       - { kind: damage_reduction, value: 10, duration: 3 }
