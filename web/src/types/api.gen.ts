@@ -134,16 +134,35 @@ export interface paths {
         put?: never;
         /**
          * Apple Callback
-         * @description Apple posts a form-encoded body to the callback. See architecture doc §9.
+         * @description Form-encoded callback from Apple after the user grants consent.
          *
-         *     Implementation steps when wiring:
-         *       1. Read form fields: `code`, `id_token`, optional `user` (first login only).
-         *       2. Build the Apple client_secret JWT (ES256, signed with the .p8 key).
-         *       3. POST to https://appleid.apple.com/auth/token with the code.
-         *       4. Verify the returned id_token against Apple's JWKS.
-         *       5. issue_access_token(AuthenticatedUser(sub=f"apple:{sub}", ...)).
+         *     Apple posts `code`, `id_token` (JWT), and on the first login a JSON
+         *     `user` blob. We exchange the code for tokens, verify the id_token
+         *     against Apple's JWKS, then upsert the player and mint our own JWT.
          */
         post: operations["apple_callback_auth_apple_callback_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/refresh": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Refresh
+         * @description Trade a refresh token for a fresh access + refresh pair.
+         *
+         *     The presented refresh JTI is consumed (single-use). Replays return 401.
+         */
+        post: operations["refresh_auth_refresh_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -503,6 +522,8 @@ export interface components {
              * @default 0
              */
             shield: number;
+            /** Shield Source */
+            shield_source?: string | null;
         };
         /**
          * DamageClass
@@ -745,6 +766,11 @@ export interface components {
             /** Queue Size */
             queue_size: number;
         };
+        /** RefreshRequest */
+        RefreshRequest: {
+            /** Refresh Token */
+            refresh_token: string;
+        };
         /**
          * Side
          * @enum {string}
@@ -808,6 +834,18 @@ export interface components {
          * @enum {string}
          */
         TargetKind: "single_enemy" | "all_enemies" | "single_ally" | "all_allies" | "self";
+        /** TokenResponse */
+        TokenResponse: {
+            /** Access Token */
+            access_token: string;
+            /** Refresh Token */
+            refresh_token?: string | null;
+            /**
+             * Token Type
+             * @default Bearer
+             */
+            token_type: string;
+        };
         /** UnlockRulePayload */
         UnlockRulePayload: {
             /** Character Id */
@@ -1021,6 +1059,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+        };
+    };
+    refresh_auth_refresh_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RefreshRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TokenResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

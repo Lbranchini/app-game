@@ -13,6 +13,9 @@ class Settings(BaseSettings):
     jwt_audience: str = "agora-clients"
     jwt_issuer: str = "agora-server"
     jwt_access_ttl_seconds: int = 60 * 15
+    # Refresh tokens are long-lived; the client uses POST /auth/refresh to
+    # trade them for a fresh access token (with a rotated refresh token).
+    jwt_refresh_ttl_seconds: int = 60 * 60 * 24 * 30  # 30 days
 
     # Google OAuth
     google_client_id: str | None = None

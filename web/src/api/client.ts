@@ -20,18 +20,64 @@ export interface MeResponse {
 }
 
 const TOKEN_KEY = "agora.token";
+const REFRESH_KEY = "agora.refresh";
 
 export const auth = {
   getToken(): string | null {
     return localStorage.getItem(TOKEN_KEY);
   },
-  setToken(token: string): void {
+  getRefreshToken(): string | null {
+    return localStorage.getItem(REFRESH_KEY);
+  },
+  setToken(token: string, refreshToken?: string | null): void {
     localStorage.setItem(TOKEN_KEY, token);
+    if (refreshToken) {
+      localStorage.setItem(REFRESH_KEY, refreshToken);
+    }
   },
   clear(): void {
     localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(REFRESH_KEY);
   },
 };
+
+interface TokenPair {
+  access_token: string;
+  refresh_token?: string | null;
+}
+
+// Single in-flight refresh per browser tab — when several requests 401 at
+// once we don't want to fan out N refresh calls (each consuming the JTI
+// and racing against the others). The first caller starts the refresh; the
+// rest await the same promise.
+let inflightRefresh: Promise<string | null> | null = null;
+
+async function tryRefresh(): Promise<string | null> {
+  if (inflightRefresh) return inflightRefresh;
+  const refresh = auth.getRefreshToken();
+  if (!refresh) return null;
+  inflightRefresh = (async () => {
+    try {
+      const resp = await fetch("/api/auth/refresh", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ refresh_token: refresh }),
+      });
+      if (!resp.ok) {
+        // Refresh itself failed (consumed, expired, server down).
+        // Wipe both tokens so the user is forced back through OAuth.
+        auth.clear();
+        return null;
+      }
+      const body = (await resp.json()) as TokenPair;
+      auth.setToken(body.access_token, body.refresh_token);
+      return body.access_token;
+    } finally {
+      inflightRefresh = null;
+    }
+  })();
+  return inflightRefresh;
+}
 
 /** Mirrors the server's `ErrorResponse` envelope (see api/main.py). */
 export interface ApiError {
@@ -52,16 +98,27 @@ export class ApiRequestError extends Error {
   }
 }
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
+async function request<T>(
+  path: string,
+  init?: RequestInit,
+  options?: { skipRefresh?: boolean },
+): Promise<T> {
   const token = auth.getToken();
   const headers = new Headers(init?.headers);
   headers.set("Content-Type", "application/json");
   if (token) headers.set("Authorization", `Bearer ${token}`);
 
   const response = await fetch(`/api${path}`, { ...init, headers });
+  if (response.status === 401 && !options?.skipRefresh && auth.getRefreshToken()) {
+    // Access token likely expired. Try one refresh and replay the original
+    // call. `skipRefresh` guards against an infinite loop if the retry also
+    // 401s (or is the refresh call itself).
+    const fresh = await tryRefresh();
+    if (fresh) {
+      return request<T>(path, init, { skipRefresh: true });
+    }
+  }
   if (!response.ok) {
-    // Try to parse the unified ErrorResponse envelope; fall back to plain
-    // text if the server (or a proxy) sent something else.
     let body: ApiError;
     try {
       const parsed = (await response.json()) as Partial<ApiError>;
@@ -90,9 +147,10 @@ export const api = {
   listUnlockRules: () =>
     request<UnlockRulePayload[]>("/unlocks/rules"),
   devToken: () =>
-    request<{ access_token: string; token_type: string }>("/auth/dev-token", {
-      method: "POST",
-    }),
+    request<{ access_token: string; refresh_token: string | null; token_type: string }>(
+      "/auth/dev-token",
+      { method: "POST" },
+    ),
 };
 
 export interface UnlockRulePayload {

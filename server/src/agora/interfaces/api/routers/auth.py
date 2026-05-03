@@ -32,7 +32,10 @@ from agora.interfaces.api.rate_limit import limiter
 from agora.interfaces.api.security import (
     AuthenticatedUser,
     current_user,
+    decode_refresh_token,
     issue_access_token,
+    issue_refresh_token,
+    refresh_blacklist,
 )
 from agora.interfaces.api.settings import Settings, get_settings
 
@@ -41,7 +44,12 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 class TokenResponse(BaseModel):
     access_token: str
+    refresh_token: str | None = None
     token_type: str = "Bearer"
+
+
+class RefreshRequest(BaseModel):
+    refresh_token: str
 
 
 class MeResponse(BaseModel):
@@ -112,10 +120,14 @@ async def google_callback(
         email=player.email,
         name=player.name,
     )
-    jwt_token = issue_access_token(user)
+    access_jwt = issue_access_token(user)
+    refresh_jwt = issue_refresh_token(user)
     frontend_url = settings.web_origin.rstrip("/")
+    # Same-origin redirect; the frontend's Login page reads both tokens
+    # from the URL fragment-or-query and stashes them in localStorage.
     return RedirectResponse(
-        url=f"{frontend_url}/login?token={jwt_token}", status_code=302
+        url=f"{frontend_url}/login?token={access_jwt}&refresh_token={refresh_jwt}",
+        status_code=302,
     )
 
 
@@ -226,7 +238,10 @@ async def apple_callback(
         name=player.name,
     )
     return JSONResponse(
-        TokenResponse(access_token=issue_access_token(user)).model_dump()
+        TokenResponse(
+            access_token=issue_access_token(user),
+            refresh_token=issue_refresh_token(user),
+        ).model_dump()
     )
 
 
@@ -244,7 +259,29 @@ def dev_token(
     if settings.jwt_signing_secret != "dev-only-change-me":
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
     user = AuthenticatedUser(sub="dev:local", email="dev@local", name="Dev User")
-    return TokenResponse(access_token=issue_access_token(user))
+    return TokenResponse(
+        access_token=issue_access_token(user),
+        refresh_token=issue_refresh_token(user),
+    )
+
+
+@router.post("/refresh", response_model=TokenResponse)
+@limiter.limit("60/minute")
+def refresh(
+    request: Request,
+    body: RefreshRequest,
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> TokenResponse:
+    """Trade a refresh token for a fresh access + refresh pair.
+
+    The presented refresh JTI is consumed (single-use). Replays return 401.
+    """
+    user, jti, exp = decode_refresh_token(body.refresh_token, settings)
+    refresh_blacklist.mark_consumed(jti, exp)
+    return TokenResponse(
+        access_token=issue_access_token(user),
+        refresh_token=issue_refresh_token(user),
+    )
 
 
 @router.get("/me", response_model=MeResponse)

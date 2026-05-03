@@ -9,12 +9,15 @@ export function LoginPage() {
   const navigate = useNavigate();
   const [error, setError] = useState<string | null>(null);
 
-  // Handle redirect-back from the backend OAuth callback (?token=<jwt>)
+  // Handle redirect-back from the backend OAuth callback. The Google
+  // callback sends both `token` (access) and `refresh_token` so the
+  // client can rotate without re-OAuthing every 15 minutes.
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const token = params.get("token");
+    const refreshToken = params.get("refresh_token");
     if (token) {
-      setToken(token);
+      setToken(token, refreshToken);
       navigate("/characters", { replace: true });
     }
   }, [setToken, navigate]);
@@ -26,7 +29,7 @@ export function LoginPage() {
   const onDev = async () => {
     try {
       const result = await api.devToken();
-      setToken(result.access_token);
+      setToken(result.access_token, result.refresh_token ?? undefined);
       navigate("/characters");
     } catch (e) {
       setError(String(e));
