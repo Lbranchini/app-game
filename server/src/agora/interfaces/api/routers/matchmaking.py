@@ -28,6 +28,7 @@ from agora.application.ports import (
     MatchHistoryRepository,
     PlayerRepository,
 )
+from agora.interfaces.api import metrics
 from agora.interfaces.api.dependencies import (
     get_arena_repository,
     get_character_repository,
@@ -37,6 +38,12 @@ from agora.interfaces.api.dependencies import (
 from agora.interfaces.api.match_runtime import MatchRuntime
 from agora.interfaces.api.routers import match as match_router
 from agora.interfaces.api.security import AuthenticatedUser, authenticate_ws_token, current_user
+
+
+def _sync_queue_gauge(runtime: MatchRuntime) -> None:
+    """Single source of truth for the queue-depth gauge — call after any
+    join/leave/pair so the value never drifts from the actual queue."""
+    metrics.matchmaking_queue_depth.set(len(runtime.matchmaking.queued_player_ids()))
 
 router = APIRouter(prefix="/matchmaking", tags=["matchmaking"])
 
@@ -61,6 +68,7 @@ async def join(
     user: Annotated[AuthenticatedUser, Depends(current_user)],
 ) -> QueueStatus:
     runtime.matchmaking.join(user.sub, display_name=user.name)
+    _sync_queue_gauge(runtime)
     await _try_pair_and_notify(runtime)
     return QueueStatus(
         queued=user.sub in runtime.matchmaking.queued_player_ids(),
@@ -74,6 +82,7 @@ def leave(
     user: Annotated[AuthenticatedUser, Depends(current_user)],
 ) -> QueueStatus:
     runtime.matchmaking.leave(user.sub)
+    _sync_queue_gauge(runtime)
     return QueueStatus(
         queued=False,
         queue_size=len(runtime.matchmaking.queued_player_ids()),
@@ -104,6 +113,7 @@ async def matchmaking_ws(
     await websocket.accept()
     runtime.attach_matchmaking_socket(user.sub, websocket)
     runtime.matchmaking.join(user.sub, display_name=user.name)
+    _sync_queue_gauge(runtime)
     await websocket.send_json({"type": "queued"})
 
     # Pair immediately if there's already someone waiting.
@@ -115,6 +125,7 @@ async def matchmaking_ws(
             frame = await websocket.receive_json()
             if frame.get("type") == "leave":
                 runtime.matchmaking.leave(user.sub)
+                _sync_queue_gauge(runtime)
                 await websocket.send_json({"type": "left"})
                 await websocket.close()
                 break
@@ -123,12 +134,14 @@ async def matchmaking_ws(
     finally:
         runtime.detach_matchmaking_socket(user.sub)
         runtime.matchmaking.leave(user.sub)
+        _sync_queue_gauge(runtime)
 
 
 async def _try_pair_and_notify(runtime: MatchRuntime) -> None:
     pair = runtime.matchmaking.try_pair()
     if pair is None:
         return
+    _sync_queue_gauge(runtime)  # two players just left the queue
     a, b, draft = pair
     for queued_player, side in ((a, "A"), (b, "B")):
         ws = runtime.matchmaking_socket(queued_player.player_id)
@@ -138,5 +151,5 @@ async def _try_pair_and_notify(runtime: MatchRuntime) -> None:
             await ws.send_json(
                 {"type": "match_found", "draft_id": draft.draft_id, "side": side}
             )
-        except Exception:  # noqa: BLE001
+        except Exception:
             runtime.detach_matchmaking_socket(queued_player.player_id)

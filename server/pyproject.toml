@@ -16,6 +16,7 @@ dependencies = [
     "sqlalchemy>=2.0",
     "alembic>=1.13",
     "slowapi>=0.1.9",
+    "prometheus_client>=0.19",
 ]
 
 [project.optional-dependencies]

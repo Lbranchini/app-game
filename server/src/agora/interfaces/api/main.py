@@ -22,6 +22,7 @@ from agora.interfaces.api.routers import (
     health,
     match,
     matchmaking,
+    metrics as metrics_router,
     unlocks,
 )
 from agora.interfaces.api.settings import get_settings
@@ -101,6 +102,7 @@ def create_app() -> FastAPI:
     app.include_router(draft.router)
     app.include_router(matchmaking.router)
     app.include_router(unlocks.router)
+    app.include_router(metrics_router.router)
     return app
 
 

@@ -37,6 +37,7 @@ from agora.domain.match_record import MatchRecord
 from agora.domain.ratings import compute_new_ratings
 from agora.infrastructure.in_memory_draft_repository import InMemoryDraftRepository
 from agora.infrastructure.seeded_random import SeededRandom
+from agora.interfaces.api import metrics
 
 logger = logging.getLogger(__name__)
 
@@ -230,6 +231,7 @@ class MatchRuntime:
                 "seed": seed,
             },
         )
+        metrics.active_matches.inc()
         return state
 
     def get(self, match_id: str) -> MatchState:
@@ -303,7 +305,8 @@ class MatchRuntime:
         if session is None:
             raise KeyError(match_id)
         async with session.lock:
-            new_state, events = session.engine.resolve_turn(session.state, actions)
+            with metrics.turn_resolve_seconds.time():
+                new_state, events = session.engine.resolve_turn(session.state, actions)
             if not new_state.finished:
                 new_state.turn_deadline = datetime.utcnow() + TURN_DURATION
             else:
@@ -429,7 +432,8 @@ class MatchRuntime:
                         "side": session.state.current_side.value,
                     },
                 )
-                new_state, events = session.engine.resolve_turn(session.state, [])
+                with metrics.turn_resolve_seconds.time():
+                    new_state, events = session.engine.resolve_turn(session.state, [])
                 if not new_state.finished:
                     new_state.turn_deadline = datetime.utcnow() + TURN_DURATION
                 else:
@@ -491,6 +495,7 @@ class MatchRuntime:
                         "winner": winner.value,
                     },
                 )
+                metrics.matches_forfeited_total.inc()
                 session.state.finished = True
                 session.state.winner = winner
                 session.state.turn_deadline = None
@@ -600,6 +605,9 @@ class MatchRuntime:
                     self._unlocks.apply(player.id)
 
         session.persisted = True
+        winner_label = winner if winner else "draw"
+        metrics.matches_finished_total.labels(winner=winner_label).inc()
+        metrics.active_matches.dec()
         logger.info(
             "match finished",
             extra={
