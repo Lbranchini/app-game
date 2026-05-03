@@ -12,6 +12,7 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 
+from agora.interfaces.api.logging_setup import configure_logging
 from agora.interfaces.api.rate_limit import limiter
 from agora.interfaces.api.routers import (
     arenas,
@@ -41,6 +42,7 @@ class ErrorResponse(BaseModel):
 
 def create_app() -> FastAPI:
     settings = get_settings()
+    configure_logging()
     app = FastAPI(
         title="Agora API",
         version="0.0.3",

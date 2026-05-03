@@ -219,6 +219,17 @@ class MatchRuntime:
             team_b=team_b_ids,
             started_at=datetime.utcnow(),
         )
+        logger.info(
+            "match started",
+            extra={
+                "event": "match_started",
+                "match_id": match_id,
+                "arena_id": state.arena_id,
+                "side_a_player_id": draft.side_a_player_id,
+                "side_b_player_id": draft.side_b_player_id,
+                "seed": seed,
+            },
+        )
         return state
 
     def get(self, match_id: str) -> MatchState:
@@ -409,6 +420,15 @@ class MatchRuntime:
                     return
                 if session.state.turn_deadline != expected:
                     return  # superseded by a real submission
+                logger.info(
+                    "turn auto-resolved (deadline expired)",
+                    extra={
+                        "event": "turn_auto_resolved",
+                        "match_id": match_id,
+                        "turn": session.state.turn,
+                        "side": session.state.current_side.value,
+                    },
+                )
                 new_state, events = session.engine.resolve_turn(session.state, [])
                 if not new_state.finished:
                     new_state.turn_deadline = datetime.utcnow() + TURN_DURATION
@@ -461,6 +481,15 @@ class MatchRuntime:
 
                 winner = (
                     Side.B if player_id == session.side_a_player_id else Side.A
+                )
+                logger.info(
+                    "match forfeited",
+                    extra={
+                        "event": "match_forfeited",
+                        "match_id": match_id,
+                        "player_id": player_id,
+                        "winner": winner.value,
+                    },
                 )
                 session.state.finished = True
                 session.state.winner = winner
@@ -571,6 +600,19 @@ class MatchRuntime:
                     self._unlocks.apply(player.id)
 
         session.persisted = True
+        logger.info(
+            "match finished",
+            extra={
+                "event": "match_finished",
+                "match_id": match_id,
+                "winner": winner,
+                "turns": session.state.turn,
+                "elo_delta_a": delta_a,
+                "elo_delta_b": delta_b,
+                "side_a_player_id": session.side_a_player_id,
+                "side_b_player_id": session.side_b_player_id,
+            },
+        )
         # Match is over — tear down the heartbeat loop too. The deadline
         # watcher already self-cancels via state.finished, but the heartbeat
         # is keyed off "any socket attached" so we have to stop it here.
