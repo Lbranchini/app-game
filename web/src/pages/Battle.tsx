@@ -22,8 +22,9 @@ interface CharacterState {
   hp: number;
   hp_max: number;
   shield: number;
+  shield_source: string | null;
   cooldowns: Record<string, number>;
-  statuses: { name: string; duration: number; value: number }[];
+  statuses: { name: string; duration: number; value: number; source: string | null }[];
 }
 
 interface PlayerState {
@@ -513,252 +514,276 @@ export function BattlePage() {
       {/* Dark overlay so UI stays readable */}
       <div className="absolute inset-0 bg-slate-950/70 pointer-events-none" />
       <div className="relative flex flex-col min-h-screen">
-      <VsSplash visible={splashFor === state.match_id} teamA={state.a.characters} teamB={state.b.characters} />
+        <VsSplash visible={splashFor === state.match_id} teamA={state.a.characters} teamB={state.b.characters} />
 
-      {showSelfDisconnect && (
-        <ReconnectOverlay
-          gaveUp={reconnectGaveUp}
-          attempt={reconnectAttempt}
-          maxAttempts={MAX_RECONNECT_ATTEMPTS}
-          secondsUntilNext={reconnectIn}
-          onRetry={() => {
-            if (matchId) {
-              reconnectAttemptsRef.current = 0;
-              setReconnectAttempt(0);
-              setReconnectGaveUp(false);
-              connect(matchId);
-            }
-          }}
-        />
-      )}
+        {showSelfDisconnect && (
+          <ReconnectOverlay
+            gaveUp={reconnectGaveUp}
+            attempt={reconnectAttempt}
+            maxAttempts={MAX_RECONNECT_ATTEMPTS}
+            secondsUntilNext={reconnectIn}
+            onRetry={() => {
+              if (matchId) {
+                reconnectAttemptsRef.current = 0;
+                setReconnectAttempt(0);
+                setReconnectGaveUp(false);
+                connect(matchId);
+              }
+            }}
+          />
+        )}
 
-      {offlineBanner && (
-        <div className="mx-4 mt-4 flex items-center rounded-lg bg-amber-500/10 px-4 py-2 text-xs text-amber-200 ring-1 ring-amber-500/40">
-          <span>
-            Opponent disconnected — auto-forfeit in{" "}
-            <span className="font-mono font-bold text-amber-100">{offlineSecondsLeft}s</span>
-          </span>
-        </div>
-      )}
-
-      {/* HEADER */}
-      <header className="border-b border-slate-800 bg-slate-900/80 px-6 py-3">
-        <div className="flex items-center justify-between mb-2">
-          <div className="flex items-center gap-3 text-sm text-slate-400">
-            <ConnectionDot status={wsStatus} />
-            <span className="font-mono text-slate-500">match {matchId?.slice(0, 8)}</span>
-            <span className="text-slate-700">·</span>
-            <span>arena {state.arena_id}</span>
-          </div>
-          <div className="text-center">
-            <div className="text-xs uppercase tracking-wider text-slate-500">Turn</div>
-            <div className="text-2xl font-bold tabular-nums">{state.turn}</div>
-          </div>
-          <div className="flex items-center gap-3">
-            <div className="text-right text-sm">
-              <div className="text-xs uppercase tracking-wider text-slate-500">Acting · {secondsLeft}s</div>
-              <div
-                className={
-                  state.current_side === "A"
-                    ? "font-bold text-emerald-400"
-                    : "font-bold text-rose-400"
-                }
-              >
-                Side {state.current_side}
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={toggleMute}
-              aria-label={muted ? "Unmute" : "Mute"}
-              className="rounded-md bg-slate-800 px-2 py-1 text-lg leading-none text-slate-300 ring-1 ring-slate-700 hover:bg-slate-700"
-            >
-              {muted ? "\u{1F507}" : "\u{1F50A}"}
-            </button>
-          </div>
-        </div>
-        {!state.finished && (
-          <div className="h-1 bg-slate-800 rounded-full overflow-hidden">
-            <div
-              className={[
-                "h-full transition-[width] duration-200 ease-linear",
-                timerRatio > 0.5 ? "bg-emerald-500" : timerRatio > 0.2 ? "bg-amber-400" : "bg-red-500",
-              ].join(" ")}
-              style={{ width: `${timerRatio * 100}%` }}
-            />
+        {offlineBanner && (
+          <div className="mx-4 mt-4 flex items-center rounded-lg bg-amber-500/10 px-4 py-2 text-xs text-amber-200 ring-1 ring-amber-500/40">
+            <span>
+              Opponent disconnected — auto-forfeit in{" "}
+              <span className="font-mono font-bold text-amber-100">{offlineSecondsLeft}s</span>
+            </span>
           </div>
         )}
-      </header>
 
-      {/* BATTLE AREA - Side by side */}
-      <div className="flex-1 flex gap-4 p-4 overflow-hidden">
-        {/* LEFT: YOUR TEAM */}
-        <BattleSide
-          title={`Your team · Side ${activePlayer.side}`}
-          side="player"
-          characters={activePlayer.characters}
-          player={activePlayer}
-          charById={charById}
-          floatsByTarget={floatsByTarget}
-          isActive={state.current_side === activePlayer.side}
-          queued={charactersAlreadyActing}
-          selectedSkillCharId={selectedSkill?.character_id}
-          targetSide={targetSide}
-          onSkillClick={onSkillClick}
-          onTargetClick={targetSide === "ally" || targetSide === "self" ? onTargetClick : undefined}
-          remainingPool={remainingPool}
-        />
-
-        {/* CENTER: CONTROLS */}
-        <div className="w-80 flex flex-col gap-4">
-          {/* Essence Info */}
-          <div className="bg-slate-900/80 rounded-lg ring-1 ring-slate-800 p-4 space-y-3">
-            <div>
-              <div className="text-xs uppercase tracking-wider text-slate-500 mb-2">Your essences</div>
-              <EssenceBar pool={activePlayer.essences} large />
+        {/* HEADER */}
+        <header className="border-b border-slate-800 bg-slate-900/80 px-6 py-3">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-3 text-sm text-slate-400">
+              <ConnectionDot status={wsStatus} />
+              <span className="font-mono text-slate-500">match {matchId?.slice(0, 8)}</span>
+              <span className="text-slate-700">·</span>
+              <span>arena {state.arena_id}</span>
             </div>
-            <div className="h-px bg-slate-700" />
-            <div>
-              <div className="text-xs uppercase tracking-wider text-slate-500 mb-2">Available</div>
-              <EssenceBar pool={remainingPool} large />
+            <div className="text-center">
+              <div className="text-xs uppercase tracking-wider text-slate-500">Turn</div>
+              <div className="text-2xl font-bold tabular-nums">{state.turn}</div>
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="text-right text-sm">
+                <div className="text-xs uppercase tracking-wider text-slate-500">Acting · {secondsLeft}s</div>
+                <div
+                  className={
+                    state.current_side === "A"
+                      ? "font-bold text-emerald-400"
+                      : "font-bold text-rose-400"
+                  }
+                >
+                  Side {state.current_side}
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={toggleMute}
+                aria-label={muted ? "Unmute" : "Mute"}
+                className="rounded-md bg-slate-800 px-2 py-1 text-lg leading-none text-slate-300 ring-1 ring-slate-700 hover:bg-slate-700"
+              >
+                {muted ? "\u{1F507}" : "\u{1F50A}"}
+              </button>
             </div>
           </div>
-
-          {/* Skill Detail (inline, read-only) */}
-          <AnimatePresence>
-            {selectedSkill && (
-              <motion.div
-                key={selectedSkill.skill.id}
-                initial={{ opacity: 0, y: -8 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -8 }}
-                transition={{ duration: 0.15 }}
-                className="bg-slate-900/90 rounded-lg ring-1 ring-amber-500/40 p-4 space-y-3"
-              >
-                <div className="flex items-start justify-between">
-                  <div>
-                    <div className="text-base font-bold text-amber-200">{selectedSkill.skill.name}</div>
-                    <div className="text-[10px] text-slate-400">{selectedSkill.character_name}</div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => { setSelectedSkill(null); setTargetSide(null); }}
-                    className="text-slate-500 hover:text-slate-300 text-lg leading-none"
-                  >×</button>
-                </div>
-                {/* Naruto Arena-style description */}
-                <p className="text-[13px] leading-relaxed text-slate-100 border-l-2 border-amber-500/60 pl-3">
-                  {selectedSkill.skill.description?.trim()
-                    ? selectedSkill.skill.description
-                    : buildSkillDescription(selectedSkill.skill)}
-                </p>
-
-                {/* Meta row: cost + cooldown */}
-                <div className="flex items-center justify-between gap-2 pt-1 border-t border-slate-700/60">
-                  <div className="flex gap-1 flex-wrap">
-                    {Object.keys(selectedSkill.skill.cost).length === 0 ? (
-                      <span className="text-[10px] italic text-slate-500">No cost</span>
-                    ) : (
-                      Object.entries(selectedSkill.skill.cost).map(([e, n]) => (
-                        <span key={e} className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ring-1 ${ESSENCE_STYLE[e as Essence].chip}`}>
-                          <span className={`inline-block h-1.5 w-1.5 rounded-full mr-1 ${ESSENCE_STYLE[e as Essence].dot}`}/>
-                          {n}× {ESSENCE_STYLE[e as Essence].label}
-                        </span>
-                      ))
-                    )}
-                  </div>
-                  <div className="flex gap-3 text-[10px] text-slate-500 shrink-0">
-                    {selectedSkill.skill.cooldown > 0 && (
-                      <span>CD <span className="text-slate-300 font-bold">{selectedSkill.skill.cooldown}</span></span>
-                    )}
-                    {selectedSkill.skill.duration > 0 && (
-                      <span>DUR <span className="text-slate-300 font-bold">{selectedSkill.skill.duration}</span></span>
-                    )}
-                  </div>
-                </div>
-                {targetSide && (
-                  <p className="text-[10px] text-amber-400/70 italic">
-                    {targetSide === "enemy"
-                      ? selectedSkill.skill.target === "all_enemies"
-                        ? "→ Click any opponent to hit all enemies"
-                        : "→ Click an opponent to cast"
-                      : targetSide === "self"
-                        ? "→ Click the same character to cast"
-                        : selectedSkill.skill.target === "all_allies"
-                          ? "→ Click any ally to buff all allies"
-                          : "→ Click an ally to cast"}
-                  </p>
-                )}
-              </motion.div>
-            )}
-          </AnimatePresence>
-
-          {/* Queue */}
           {!state.finished && (
-            <div className="bg-slate-900/80 rounded-lg ring-1 ring-slate-800 p-4 flex-1 flex flex-col">
-              <div className="text-xs uppercase tracking-wider text-slate-500 mb-3 font-semibold">
-                {queue.length === 0 ? "No actions" : `${queue.length}/3 queued`}
-              </div>
-              <div className="flex-1 overflow-y-auto space-y-2 mb-3">
-                {queue.map((action, i) => {
-                  const def = charById.get(action.character_id);
-                  const skill = def?.skills.find((s) => s.id === action.skill_id);
-                  return (
-                    <div key={i} className="flex items-center justify-between gap-2 rounded-md bg-slate-800 px-2 py-1.5 text-xs ring-1 ring-slate-700">
-                      <div className="min-w-0 flex-1">
-                        <div className="font-semibold truncate text-slate-100">{def?.name}</div>
-                        <div className="text-slate-400 text-[10px] truncate">{skill?.name}</div>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => setQueue((prev) => prev.filter((_, idx) => idx !== i))}
-                        className="text-rose-400 hover:text-rose-300 flex-shrink-0"
-                      >
-                        ×
-                      </button>
-                    </div>
-                  );
-                })}
-              </div>
-              <div className="space-y-2 flex flex-col-reverse">
-                <button
-                  type="button"
-                  onClick={() => setQueue([])}
-                  className="rounded-md bg-slate-700 px-3 py-2 text-xs font-medium hover:bg-slate-600 w-full"
-                >
-                  Clear
-                </button>
-                <button
-                  type="button"
-                  onClick={submitTurn}
-                  disabled={queue.length === 0}
-                  className="rounded-md bg-blue-600 px-3 py-2 text-xs font-medium hover:bg-blue-500 disabled:opacity-40 w-full"
-                >
-                  Confirm turn
-                </button>
-              </div>
+            <div className="h-1 bg-slate-800 rounded-full overflow-hidden">
+              <div
+                className={[
+                  "h-full transition-[width] duration-200 ease-linear",
+                  timerRatio > 0.5 ? "bg-emerald-500" : timerRatio > 0.2 ? "bg-amber-400" : "bg-red-500",
+                ].join(" ")}
+                style={{ width: `${timerRatio * 100}%` }}
+              />
             </div>
           )}
+        </header>
+
+        {/* BATTLE AREA - Side by side */}
+        <div className="flex-1 flex gap-4 p-4 overflow-hidden">
+          {/* LEFT: YOUR TEAM */}
+          <BattleSide
+            title={`Your team · Side ${activePlayer.side}`}
+            side="player"
+            characters={activePlayer.characters}
+            player={activePlayer}
+            charById={charById}
+            floatsByTarget={floatsByTarget}
+            isActive={state.current_side === activePlayer.side}
+            queued={charactersAlreadyActing}
+            selectedSkillCharId={selectedSkill?.character_id}
+            targetSide={targetSide}
+            onSkillClick={onSkillClick}
+            onTargetClick={targetSide === "ally" || targetSide === "self" ? onTargetClick : undefined}
+            remainingPool={remainingPool}
+          />
+
+          {/* CENTER: CONTROLS */}
+          <div className="w-80 flex flex-col gap-4">
+            {/* Essence Info */}
+            <div className="bg-slate-900/80 rounded-lg ring-1 ring-slate-800 p-4 space-y-3">
+              <div>
+                <div className="text-xs uppercase tracking-wider text-slate-500 mb-2">Your essences</div>
+                <EssenceBar pool={activePlayer.essences} large />
+              </div>
+              <div className="h-px bg-slate-700" />
+              <div>
+                <div className="text-xs uppercase tracking-wider text-slate-500 mb-2">Available</div>
+                <EssenceBar pool={remainingPool} large />
+              </div>
+            </div>
+
+            {/* Skill Detail (inline, read-only) */}
+            <AnimatePresence>
+              {selectedSkill && (
+                <motion.div
+                  key={selectedSkill.skill.id}
+                  initial={{ opacity: 0, y: -8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -8 }}
+                  transition={{ duration: 0.15 }}
+                  className="bg-slate-900/90 rounded-lg ring-1 ring-amber-500/40 p-4 space-y-3"
+                >
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <div className="text-base font-bold text-amber-200">{selectedSkill.skill.name}</div>
+                      <div className="text-[10px] text-slate-400">{selectedSkill.character_name}</div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => { setSelectedSkill(null); setTargetSide(null); }}
+                      className="text-slate-500 hover:text-slate-300 text-lg leading-none"
+                    >×</button>
+                  </div>
+                  {/* Naruto Arena-style description */}
+                  <p className="text-[13px] leading-relaxed text-slate-100 border-l-2 border-amber-500/60 pl-3">
+                    {selectedSkill.skill.description?.trim()
+                      ? selectedSkill.skill.description
+                      : buildSkillDescription(selectedSkill.skill)}
+                  </p>
+
+                  {/* Meta row: cost + cooldown */}
+                  <div className="flex items-center justify-between gap-2 pt-1 border-t border-slate-700/60">
+                    <div className="flex gap-1 flex-wrap">
+                      {Object.keys(selectedSkill.skill.cost).length === 0 ? (
+                        <span className="text-[10px] italic text-slate-500">No cost</span>
+                      ) : (
+                        Object.entries(selectedSkill.skill.cost).map(([e, n]) => (
+                          <span key={e} className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ring-1 ${ESSENCE_STYLE[e as Essence].chip}`}>
+                            <span className={`inline-block h-1.5 w-1.5 rounded-full mr-1 ${ESSENCE_STYLE[e as Essence].dot}`} />
+                            {n}× {ESSENCE_STYLE[e as Essence].label}
+                          </span>
+                        ))
+                      )}
+                    </div>
+                    <div className="flex gap-3 text-[10px] text-slate-500 shrink-0">
+                      {selectedSkill.skill.cooldown > 0 && (
+                        <span>CD <span className="text-slate-300 font-bold">{selectedSkill.skill.cooldown}</span></span>
+                      )}
+                      {selectedSkill.skill.duration > 0 && (
+                        <span>DUR <span className="text-slate-300 font-bold">{selectedSkill.skill.duration}</span></span>
+                      )}
+                    </div>
+                  </div>
+                  {targetSide && (
+                    <p className="text-[10px] text-amber-400/70 italic">
+                      {targetSide === "enemy"
+                        ? selectedSkill.skill.target === "all_enemies"
+                          ? "→ Click any opponent to hit all enemies"
+                          : "→ Click an opponent to cast"
+                        : targetSide === "self"
+                          ? "→ Click the same character to cast"
+                          : selectedSkill.skill.target === "all_allies"
+                            ? "→ Click any ally to buff all allies"
+                            : "→ Click an ally to cast"}
+                    </p>
+                  )}
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* Turn timer */}
+            {!state.finished && (() => {
+              const TURN_SECS = 60;
+              const elapsed = (now - turnStartedAt) / 1000;
+              const secondsLeft = Math.max(0, Math.ceil(TURN_SECS - elapsed));
+              const progress = Math.max(0, 1 - elapsed / TURN_SECS);
+              const urgent = secondsLeft <= 10;
+              return (
+                <div className="bg-slate-900/80 rounded-lg ring-1 ring-slate-800 px-3 py-2">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-[10px] uppercase tracking-wider text-slate-500 font-semibold">Turn timer</span>
+                    <span className={`text-xs font-mono font-bold ${urgent ? "text-rose-400 animate-pulse" : "text-slate-300"}`}>
+                      {secondsLeft}s
+                    </span>
+                  </div>
+                  <div className="h-1.5 w-full rounded-full bg-slate-700 overflow-hidden">
+                    <div
+                      className={`h-full rounded-full transition-all duration-300 ${urgent ? "bg-rose-500" : "bg-blue-500"}`}
+                      style={{ width: `${progress * 100}%` }}
+                    />
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Queue */}
+            {!state.finished && (
+              <div className="bg-slate-900/80 rounded-lg ring-1 ring-slate-800 p-4 flex-1 flex flex-col">
+                <div className="text-xs uppercase tracking-wider text-slate-500 mb-3 font-semibold">
+                  {queue.length === 0 ? "No actions" : `${queue.length}/3 queued`}
+                </div>
+                <div className="flex-1 overflow-y-auto space-y-2 mb-3">
+                  {queue.map((action, i) => {
+                    const def = charById.get(action.character_id);
+                    const skill = def?.skills.find((s) => s.id === action.skill_id);
+                    return (
+                      <div key={i} className="flex items-center justify-between gap-2 rounded-md bg-slate-800 px-2 py-1.5 text-xs ring-1 ring-slate-700">
+                        <div className="min-w-0 flex-1">
+                          <div className="font-semibold truncate text-slate-100">{def?.name}</div>
+                          <div className="text-slate-400 text-[10px] truncate">{skill?.name}</div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setQueue((prev) => prev.filter((_, idx) => idx !== i))}
+                          className="text-rose-400 hover:text-rose-300 flex-shrink-0"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className="flex flex-col gap-3">
+                  <button
+                    type="button"
+                    onClick={submitTurn}
+                    className="rounded-md bg-blue-600 px-3 py-2 text-xs font-medium hover:bg-blue-500 w-full"
+                  >
+                    Confirm turn
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setQueue([])}
+                    className="rounded-md bg-slate-700 px-3 py-2 text-xs font-medium hover:bg-slate-600 w-full"
+                  >
+                    Clear
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* RIGHT: OPPONENT */}
+          <BattleSide
+            title={`Opponent · Side ${opponent.side}`}
+            side="opponent"
+            characters={opponent.characters}
+            player={opponent}
+            charById={charById}
+            floatsByTarget={floatsByTarget}
+            isActive={false}
+            queued={new Set()}
+            selectedSkillCharId={selectedSkill?.character_id}
+            targetSide={targetSide}
+            onSkillClick={() => { }}
+            onTargetClick={targetSide === "enemy" ? onTargetClick : undefined}
+          />
         </div>
 
-        {/* RIGHT: OPPONENT */}
-        <BattleSide
-          title={`Opponent · Side ${opponent.side}`}
-          side="opponent"
-          characters={opponent.characters}
-          player={opponent}
-          charById={charById}
-          floatsByTarget={floatsByTarget}
-          isActive={false}
-          queued={new Set()}
-          selectedSkillCharId={selectedSkill?.character_id}
-          targetSide={targetSide}
-          onSkillClick={() => {}}
-          onTargetClick={targetSide === "enemy" ? onTargetClick : undefined}
-        />
-      </div>
-
-      {error && <p className="text-sm text-red-400 fixed bottom-4 left-4">{error}</p>}
+        {error && <p className="text-sm text-red-400 fixed bottom-4 left-4">{error}</p>}
       </div>
     </div>
   );
@@ -830,6 +855,7 @@ function BattleSide({
                 isOpponent={tone === "rose"}
                 clickable={isClickable}
                 dimmed={isDimmed}
+                charById={charById}
                 onClick={isClickable ? () => onTargetClick(c.id) : undefined}
               />
 
@@ -844,6 +870,90 @@ function BattleSide({
   );
 }
 
+const STATUS_DESCRIPTIONS: Record<string, string> = {
+  poison:           "Deals damage each turn based on value.",
+  bleed:            "Deals damage each turn. Removed when healed.",
+  stun:             "Cannot act this turn.",
+  silence:          "Cannot use non-physical skills.",
+  disarm:           "Cannot use physical skills.",
+  stealth:          "Cannot be targeted by single-target skills.",
+  reflective:       "Reflects a portion of damage back to the attacker.",
+  invulnerable:     "Immune to all damage and harmful effects.",
+  damage_reduction: "Incoming damage is reduced by the stack value.",
+  damage_buff:      "Outgoing damage is increased by the stack value.",
+  regen:            "Recovers HP at the start of each turn.",
+  vulnerable:       "Cannot resist new negative status effects.",
+  marked:           "Takes bonus damage from all sources.",
+  drained:          "Loses essence each turn.",
+  shield:           "Absorbs incoming damage before HP is reduced. Lasts until depleted.",
+};
+
+function StatusBadge({
+  status,
+  charById,
+}: {
+  status: CharacterState["statuses"][number];
+  charById: Map<string, Character>;
+}) {
+  const [hovered, setHovered] = useState(false);
+
+  const sourceChar = status.source ? charById.get(status.source) : null;
+  const sourceSkill = sourceChar?.skills.find((sk) =>
+    sk.effects.some(
+      (e) =>
+        (e.kind === "status" && e.status === status.name) ||
+        (e.kind === status.name as string) ||
+        (status.name === "shield" && e.kind === "destructible_shield")
+    )
+  );
+  const iconUrl = sourceSkill && sourceChar
+    ? `/skills/${sourceChar.id}_${sourceSkill.id}.png`
+    : null;
+
+  const isHarmful = ["poison", "bleed", "stun", "silence", "disarm", "marked", "drained", "vulnerable"].includes(status.name);
+  const badgeColor = status.name === "shield"
+    ? "bg-cyan-950/80 text-cyan-300 ring-cyan-800"
+    : isHarmful
+    ? "bg-rose-950/80 text-rose-300 ring-rose-800"
+    : "bg-emerald-950/80 text-emerald-300 ring-emerald-800";
+
+  return (
+    <div
+      className="relative"
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+    >
+      {hovered && (
+        <div className="pointer-events-none absolute z-50 bottom-[calc(100%+5px)] left-0 w-44 rounded-lg bg-slate-950 ring-1 ring-slate-700 shadow-2xl p-2 flex flex-col gap-1.5">
+          <div className="absolute top-full left-3 border-4 border-transparent border-t-slate-950" />
+          {iconUrl && (
+            <div className="h-8 w-full rounded overflow-hidden bg-slate-800">
+              <img src={iconUrl} alt="" className="h-full w-full object-cover" onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
+            </div>
+          )}
+          <div className="text-[11px] font-bold uppercase tracking-wider text-slate-100">
+            {status.name.replace(/_/g, " ")}
+            {status.value > 0 && <span className="ml-1 font-mono text-slate-400">{status.value}</span>}
+          </div>
+          <p className="text-[10px] text-slate-400 leading-relaxed">
+            {STATUS_DESCRIPTIONS[status.name] ?? "Active status effect."}
+          </p>
+          <div className="text-[10px] text-slate-500">
+            Duration: <span className="text-slate-300 font-mono">{status.duration === -1 ? "∞" : status.duration}</span>{status.duration !== -1 && (status.duration !== 1 ? " turns" : " turn")}
+          </div>
+        </div>
+      )}
+      <div className={`rounded overflow-hidden ring-1 cursor-default ${badgeColor} ${iconUrl ? "h-8 w-14" : "px-1.5 py-0.5 text-[10px] uppercase tracking-wider"}`}>
+        {iconUrl ? (
+          <img src={iconUrl} alt={status.name} className="h-full w-full object-cover" />
+        ) : (
+          status.name.replace(/_/g, " ")
+        )}
+      </div>
+    </div>
+  );
+}
+
 function CharacterPortrait({
   character,
   floats = [],
@@ -851,6 +961,7 @@ function CharacterPortrait({
   isOpponent = false,
   clickable = false,
   dimmed = false,
+  charById = new Map(),
   onClick,
 }: {
   character: CharacterState;
@@ -859,6 +970,7 @@ function CharacterPortrait({
   isOpponent?: boolean;
   clickable?: boolean;
   dimmed?: boolean;
+  charById?: Map<string, Character>;
   onClick?: () => void;
 }) {
   const dead = character.hp <= 0;
@@ -918,23 +1030,54 @@ function CharacterPortrait({
           <div className="mt-1 h-2 overflow-hidden rounded-full bg-slate-900">
             <div className={`h-full transition-all ${hpColor}`} style={{ width: `${Math.max(0, Math.min(100, ratio * 100))}%` }} />
           </div>
-          {character.shield > 0 && <div className="mt-1 text-[10px] font-semibold text-cyan-300">+ shield {character.shield}</div>}
         </div>
       </div>
 
-      {character.statuses.length > 0 && (
+      {(character.statuses.length > 0 || character.shield > 0) && (
         <div className="mt-2 flex flex-wrap gap-1">
+          {character.shield > 0 && (
+            <StatusBadge
+              status={{ name: "shield", duration: -1, value: character.shield, source: character.shield_source }}
+              charById={charById}
+            />
+          )}
           {character.statuses.map((s, i) => (
-            <span key={i} className="rounded bg-slate-900/70 px-1.5 py-0.5 text-[10px] uppercase tracking-wider text-slate-300 ring-1 ring-slate-700">
-              {s.name}
-              <span className="ml-1 text-slate-500">{s.duration}</span>
-            </span>
+            <StatusBadge key={i} status={s} charById={charById} />
           ))}
         </div>
       )}
 
       {dead && <div className="absolute inset-0 grid place-items-center bg-slate-950/40 text-xs font-bold uppercase tracking-widest text-red-400">KO</div>}
     </motion.div>
+  );
+}
+
+function SkillTooltip({ skill, iconUrl, cd }: { skill: Skill; iconUrl: string; cd: number }) {
+  return (
+    <div className="pointer-events-none absolute z-50 bottom-[calc(100%+6px)] left-1/2 -translate-x-1/2 w-52 rounded-lg bg-slate-950 ring-1 ring-slate-700 shadow-2xl p-2 flex flex-col gap-2">
+      <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-950" />
+      <div className="flex items-center gap-2">
+        <div className="h-10 w-16 shrink-0 rounded overflow-hidden bg-slate-800">
+          <img src={iconUrl} alt="" className="h-full w-full object-cover" onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
+        </div>
+        <div className="min-w-0">
+          <div className="text-xs font-bold text-slate-100 leading-tight">{skill.name}</div>
+          <div className="mt-0.5 flex items-center gap-1 flex-wrap">
+            <CostPips cost={skill.cost} size="small" />
+          </div>
+        </div>
+      </div>
+      {skill.description && (
+        <p className="text-[10px] text-slate-400 leading-relaxed border-t border-slate-800 pt-1.5">
+          {skill.description}
+        </p>
+      )}
+      <div className="flex items-center gap-2 text-[10px] text-slate-500 border-t border-slate-800 pt-1">
+        <span>CD <span className="text-slate-300 font-mono">{skill.cooldown}</span></span>
+        {cd > 0 && <span className="text-rose-400 font-semibold">on cooldown: {cd}t</span>}
+        <span className="ml-auto capitalize">{skill.kind}</span>
+      </div>
+    </div>
   );
 }
 
@@ -951,6 +1094,8 @@ function SkillGrid({
   stunned: boolean;
   onSkillClick: (character: CharacterState, skill: Skill) => void;
 }) {
+  const [hoveredId, setHoveredId] = useState<string | null>(null);
+
   const DODGE_SKILL: Skill = {
     id: "dodge",
     name: "Dodge",
@@ -960,6 +1105,7 @@ function SkillGrid({
     duration: 0,
     target: "self",
     effects: [{ kind: "invulnerable", value: 0, duration: 1, damage_class: null, status: null, piercing: false, true: false }],
+    description: "Spend 1 generic essence to become invulnerable for 1 turn. (4-turn cooldown)",
   };
   const allSkills = [...def.skills, DODGE_SKILL];
 
@@ -975,41 +1121,42 @@ function SkillGrid({
           : `/skills/${character.id}_${skill.id}.png`;
 
         return (
-          <button
+          <div
             key={skill.id}
-            type="button"
-            onClick={() => onSkillClick(character, skill)}
-            disabled={disabled}
-            title={skill.name}
-            className={[
-              "relative rounded overflow-hidden transition w-full aspect-[418/235]",
-              disabled
-                ? "opacity-40 cursor-not-allowed grayscale"
-                : "ring-1 ring-slate-600 hover:ring-amber-400 hover:scale-105 cursor-pointer",
-            ].join(" ")}
+            className="relative"
+            onMouseEnter={() => setHoveredId(skill.id)}
+            onMouseLeave={() => setHoveredId(null)}
           >
-            {/* Icon image */}
-            <img
-              src={iconUrl}
-              alt={skill.name}
-              className="absolute inset-0 w-full h-full object-cover"
-              onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
-            />
-            {/* Skill name overlay at bottom */}
-            <div className="absolute bottom-0 inset-x-0 bg-slate-950/75 text-[9px] leading-tight text-center text-slate-200 px-0.5 py-px truncate">
-              {skill.name}
-            </div>
-            {/* Cost pips overlay at top-left */}
-            <div className="absolute top-0.5 left-0.5 flex gap-px">
-              <CostPips cost={skill.cost} size="small" />
-            </div>
-            {/* Cooldown badge */}
-            {cd > 0 && (
-              <div className="absolute top-0.5 right-0.5 bg-rose-600 rounded-full w-5 h-5 flex items-center justify-center text-[9px] font-bold text-white shadow">
-                {cd}
-              </div>
+            {hoveredId === skill.id && (
+              <SkillTooltip skill={skill} iconUrl={iconUrl} cd={cd} />
             )}
-          </button>
+            <button
+              type="button"
+              onClick={() => onSkillClick(character, skill)}
+              disabled={disabled}
+              className={[
+                "relative rounded overflow-hidden transition w-full aspect-[418/235]",
+                disabled
+                  ? "opacity-40 cursor-not-allowed grayscale"
+                  : "ring-1 ring-slate-600 hover:ring-amber-400 hover:scale-105 cursor-pointer",
+              ].join(" ")}
+            >
+              <img
+                src={iconUrl}
+                alt={skill.name}
+                className="absolute inset-0 w-full h-full object-cover"
+                onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
+              />
+              <div className="absolute top-0.5 left-0.5 flex gap-px">
+                <CostPips cost={skill.cost} size="small" />
+              </div>
+              {cd > 0 && (
+                <div className="absolute top-0.5 right-0.5 bg-rose-600 rounded-full w-5 h-5 flex items-center justify-center text-[9px] font-bold text-white shadow">
+                  {cd}
+                </div>
+              )}
+            </button>
+          </div>
         );
       })}
     </div>
@@ -1262,8 +1409,8 @@ function buildSkillDescription(skill: Skill): string {
       case "status":
         parts.push(
           `Inflicts ${ef.status ?? "a status effect"} on ${tgt}` +
-            (ef.duration > 0 ? ` for ${ef.duration} turn${ef.duration !== 1 ? "s" : ""}` : "") +
-            "."
+          (ef.duration > 0 ? ` for ${ef.duration} turn${ef.duration !== 1 ? "s" : ""}` : "") +
+          "."
         );
         break;
       case "destructible_shield":
@@ -1277,15 +1424,15 @@ function buildSkillDescription(skill: Skill): string {
       case "damage_reduction":
         parts.push(
           `Reduces damage taken by ${tgt} by ${ef.value}` +
-            (ef.duration > 0 ? ` for ${ef.duration} turn${ef.duration !== 1 ? "s" : ""}` : "") +
-            "."
+          (ef.duration > 0 ? ` for ${ef.duration} turn${ef.duration !== 1 ? "s" : ""}` : "") +
+          "."
         );
         break;
       case "damage_buff":
         parts.push(
           `Increases damage dealt by ${tgt} by ${ef.value}` +
-            (ef.duration > 0 ? ` for ${ef.duration} turn${ef.duration !== 1 ? "s" : ""}` : "") +
-            "."
+          (ef.duration > 0 ? ` for ${ef.duration} turn${ef.duration !== 1 ? "s" : ""}` : "") +
+          "."
         );
         break;
       case "essence_drain":

@@ -112,6 +112,7 @@ class SqlAlchemyPlayerRepository:
                     provider_subject=provider_subject,
                     email=email,
                     name=name,
+                    created_at=now,
                     last_seen=now,
                 )
                 session.add(row)

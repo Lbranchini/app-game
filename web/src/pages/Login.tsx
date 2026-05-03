@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { api } from "@/api/client";
@@ -8,6 +8,16 @@ export function LoginPage() {
   const setToken = useAuthStore((s) => s.setToken);
   const navigate = useNavigate();
   const [error, setError] = useState<string | null>(null);
+
+  // Handle redirect-back from the backend OAuth callback (?token=<jwt>)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get("token");
+    if (token) {
+      setToken(token);
+      navigate("/characters", { replace: true });
+    }
+  }, [setToken, navigate]);
 
   const onProvider = (provider: "google" | "apple") => {
     window.location.href = `/api/auth/${provider}/login`;

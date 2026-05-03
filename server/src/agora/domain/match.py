@@ -36,6 +36,7 @@ class CharacterState(BaseModel):
     cooldowns: dict[str, int] = Field(default_factory=dict)
     statuses: list[ActiveStatus] = Field(default_factory=list)
     shield: int = 0
+    shield_source: str | None = None  # character id that applied the active shield
 
     @property
     def alive(self) -> bool:

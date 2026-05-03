@@ -57,6 +57,8 @@ class DamageHandler(EffectHandler):
             if target.shield > 0:
                 absorbed = min(target.shield, damage)
                 target.shield -= absorbed
+                if target.shield == 0:
+                    target.shield_source = None
                 damage -= absorbed
 
         target.hp = max(0, target.hp - damage)
@@ -147,6 +149,7 @@ class DamageBuffHandler(_StatusApplyingHandler):
 class DestructibleShieldHandler(EffectHandler):
     def apply(self, effect: Effect, ctx: EffectContext) -> None:
         ctx.target.shield += effect.value
+        ctx.target.shield_source = ctx.source.id
         ctx.events.append(
             Event(
                 kind="status_applied",

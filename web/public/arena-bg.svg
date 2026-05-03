@@ -1,0 +1,236 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <!-- Sky atmosphere -->
+    <radialGradient id="sky" cx="50%" cy="20%" r="70%">
+      <stop offset="0%" stop-color="#1c2a4e"/>
+      <stop offset="100%" stop-color="#060810"/>
+    </radialGradient>
+    <!-- Floor warm glow -->
+    <radialGradient id="floorGlow" cx="50%" cy="100%" r="70%">
+      <stop offset="0%" stop-color="#3b1f08"/>
+      <stop offset="60%" stop-color="#120c04"/>
+      <stop offset="100%" stop-color="#060810"/>
+    </radialGradient>
+    <!-- Center battle glow -->
+    <radialGradient id="battleGlow" cx="50%" cy="50%" r="35%">
+      <stop offset="0%" stop-color="#d4890a" stop-opacity="0.18"/>
+      <stop offset="100%" stop-color="#d4890a" stop-opacity="0"/>
+    </radialGradient>
+    <!-- Torch flame -->
+    <radialGradient id="torchA" cx="50%" cy="60%" r="50%">
+      <stop offset="0%" stop-color="#ffcc44" stop-opacity="0.9"/>
+      <stop offset="60%" stop-color="#ff6600" stop-opacity="0.6"/>
+      <stop offset="100%" stop-color="#ff2200" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="torchB" cx="50%" cy="60%" r="50%">
+      <stop offset="0%" stop-color="#ffcc44" stop-opacity="0.9"/>
+      <stop offset="60%" stop-color="#ff6600" stop-opacity="0.6"/>
+      <stop offset="100%" stop-color="#ff2200" stop-opacity="0"/>
+    </radialGradient>
+    <!-- Left torch glow spread -->
+    <radialGradient id="glowLeft" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#ff8800" stop-opacity="0.25"/>
+      <stop offset="100%" stop-color="#ff8800" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glowRight" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#ff8800" stop-opacity="0.25"/>
+      <stop offset="100%" stop-color="#ff8800" stop-opacity="0"/>
+    </radialGradient>
+    <!-- Moon glow -->
+    <radialGradient id="moonGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#aaccff" stop-opacity="0.5"/>
+      <stop offset="40%" stop-color="#6688cc" stop-opacity="0.15"/>
+      <stop offset="100%" stop-color="#3355aa" stop-opacity="0"/>
+    </radialGradient>
+    <!-- Star -->
+    <radialGradient id="starGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.9"/>
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="blur4">
+      <feGaussianBlur stdDeviation="4"/>
+    </filter>
+    <filter id="blur8">
+      <feGaussianBlur stdDeviation="8"/>
+    </filter>
+    <filter id="blur16">
+      <feGaussianBlur stdDeviation="16"/>
+    </filter>
+    <filter id="blur2">
+      <feGaussianBlur stdDeviation="2"/>
+    </filter>
+  </defs>
+
+  <!-- Sky -->
+  <rect width="1920" height="1080" fill="url(#sky)"/>
+
+  <!-- Stars scattered -->
+  <g opacity="0.7">
+    <circle cx="120" cy="80" r="1.2" fill="#cce0ff"/>
+    <circle cx="340" cy="55" r="0.8" fill="#ffffff"/>
+    <circle cx="510" cy="130" r="1.0" fill="#ddeeff"/>
+    <circle cx="680" cy="40" r="1.4" fill="#cce0ff"/>
+    <circle cx="820" cy="95" r="0.9" fill="#ffffff"/>
+    <circle cx="950" cy="30" r="1.1" fill="#eef4ff"/>
+    <circle cx="1100" cy="75" r="1.3" fill="#cce0ff"/>
+    <circle cx="1280" cy="50" r="0.8" fill="#ffffff"/>
+    <circle cx="1420" cy="110" r="1.0" fill="#ddeeff"/>
+    <circle cx="1600" cy="35" r="1.5" fill="#cce0ff"/>
+    <circle cx="1750" cy="88" r="0.9" fill="#ffffff"/>
+    <circle cx="200" cy="160" r="0.7" fill="#eef4ff"/>
+    <circle cx="450" cy="200" r="1.1" fill="#cce0ff"/>
+    <circle cx="750" cy="155" r="0.8" fill="#ffffff"/>
+    <circle cx="1050" cy="170" r="1.0" fill="#ddeeff"/>
+    <circle cx="1350" cy="140" r="0.9" fill="#cce0ff"/>
+    <circle cx="1650" cy="175" r="1.2" fill="#ffffff"/>
+    <circle cx="1820" cy="60" r="0.7" fill="#eef4ff"/>
+    <circle cx="60" cy="220" r="0.8" fill="#cce0ff"/>
+    <circle cx="900" cy="180" r="1.3" fill="#ffffff"/>
+    <circle cx="1500" cy="95" r="1.0" fill="#ddeeff"/>
+    <circle cx="1870" cy="150" r="0.8" fill="#cce0ff"/>
+  </g>
+
+  <!-- Moon -->
+  <circle cx="1700" cy="120" r="55" fill="url(#moonGlow)" filter="url(#blur8)"/>
+  <circle cx="1700" cy="120" r="38" fill="#d8e8ff" opacity="0.12"/>
+  <circle cx="1700" cy="120" r="30" fill="#c0d4f0" opacity="0.18"/>
+  <!-- Moon craters suggestion -->
+  <circle cx="1688" cy="108" r="6" fill="#b0c8e8" opacity="0.2"/>
+  <circle cx="1715" cy="130" r="4" fill="#b0c8e8" opacity="0.15"/>
+  <circle cx="1700" cy="120" r="30" fill="none" stroke="#a0b8d8" stroke-width="0.5" opacity="0.3"/>
+
+  <!-- Distant mountains / ruins silhouette -->
+  <g opacity="0.55">
+    <!-- Left mountain range -->
+    <polygon points="0,600 80,420 160,520 220,380 310,500 380,440 440,540 500,480 560,580 0,580" fill="#0e1528"/>
+    <!-- Right mountain range -->
+    <polygon points="1920,600 1840,430 1760,510 1700,390 1610,510 1540,450 1480,540 1420,490 1360,570 1920,580" fill="#0e1528"/>
+  </g>
+
+  <!-- Ruined arch left background -->
+  <g opacity="0.4">
+    <rect x="80" y="350" width="30" height="250" rx="2" fill="#1a1208"/>
+    <rect x="200" y="370" width="30" height="230" rx="2" fill="#1a1208"/>
+    <path d="M80 350 Q145 290 230 370" stroke="#1a1208" stroke-width="28" fill="none"/>
+  </g>
+  <!-- Ruined arch right background -->
+  <g opacity="0.4">
+    <rect x="1690" y="350" width="30" height="250" rx="2" fill="#1a1208"/>
+    <rect x="1810" y="370" width="30" height="230" rx="2" fill="#1a1208"/>
+    <path d="M1690 350 Q1755 290 1840 370" stroke="#1a1208" stroke-width="28" fill="none"/>
+  </g>
+
+  <!-- Arena ground - perspective floor -->
+  <!-- Floor base -->
+  <path d="M0,660 Q960,520 1920,660 L1920,1080 L0,1080 Z" fill="#180f04"/>
+  <!-- Floor lighter center area -->
+  <path d="M300,680 Q960,550 1620,680 L1680,1080 L240,1080 Z" fill="#1f1407"/>
+  <!-- Stone tile lines (horizontal, perspective) -->
+  <g stroke="#2a1c0a" stroke-width="1" opacity="0.6">
+    <path d="M0,720 Q960,595 1920,720"/>
+    <path d="M0,780 Q960,645 1920,780"/>
+    <path d="M0,840 Q960,700 1920,840"/>
+    <path d="M0,900 Q960,755 1920,900"/>
+    <path d="M0,960 Q960,810 1920,960"/>
+    <path d="M0,1020 Q960,860 1920,1020"/>
+  </g>
+  <!-- Vertical tile lines converging to vanishing point -->
+  <g stroke="#2a1c0a" stroke-width="1" opacity="0.4">
+    <line x1="200" y1="1080" x2="960" y2="580"/>
+    <line x1="400" y1="1080" x2="960" y2="580"/>
+    <line x1="600" y1="1080" x2="960" y2="580"/>
+    <line x1="800" y1="1080" x2="960" y2="580"/>
+    <line x1="1000" y1="1080" x2="960" y2="580"/>
+    <line x1="1200" y1="1080" x2="960" y2="580"/>
+    <line x1="1400" y1="1080" x2="960" y2="580"/>
+    <line x1="1600" y1="1080" x2="960" y2="580"/>
+    <line x1="1800" y1="1080" x2="960" y2="580"/>
+  </g>
+  <!-- Floor glow overlay -->
+  <rect x="0" y="540" width="1920" height="540" fill="url(#floorGlow)" opacity="0.8"/>
+
+  <!-- Battle circle on floor -->
+  <ellipse cx="960" cy="780" rx="500" ry="140" fill="none" stroke="#8b6914" stroke-width="2" opacity="0.4"/>
+  <ellipse cx="960" cy="780" rx="498" ry="138" fill="none" stroke="#c4961c" stroke-width="0.5" opacity="0.3"/>
+  <!-- Inner decorative rings -->
+  <ellipse cx="960" cy="780" rx="400" ry="112" fill="none" stroke="#6b5010" stroke-width="1" opacity="0.3"/>
+  <ellipse cx="960" cy="780" rx="300" ry="85" fill="none" stroke="#6b5010" stroke-width="1" opacity="0.25"/>
+  <!-- Glow -->
+  <ellipse cx="960" cy="780" rx="460" ry="130" fill="url(#battleGlow)"/>
+
+  <!-- Rune marks on floor -->
+  <g opacity="0.25" stroke="#c4961c" stroke-width="1.5" fill="none">
+    <!-- Left rune cross -->
+    <line x1="430" y1="845" x2="430" y2="810"/>
+    <line x1="415" y1="828" x2="445" y2="828"/>
+    <circle cx="430" cy="828" r="12"/>
+    <!-- Right rune cross -->
+    <line x1="1490" y1="845" x2="1490" y2="810"/>
+    <line x1="1475" y1="828" x2="1505" y2="828"/>
+    <circle cx="1490" cy="828" r="12"/>
+    <!-- Center rune diamond -->
+    <polygon points="960,840 975,855 960,870 945,855"/>
+  </g>
+
+  <!-- Left foreground pillar -->
+  <g>
+    <!-- Glow behind pillar -->
+    <ellipse cx="280" cy="680" rx="100" ry="200" fill="url(#glowLeft)" filter="url(#blur8)"/>
+    <!-- Pillar shaft -->
+    <rect x="252" y="380" width="52" height="360" rx="3" fill="#1c1408"/>
+    <!-- Pillar grooves -->
+    <rect x="256" y="380" width="4" height="360" fill="#221a0c" opacity="0.5"/>
+    <rect x="266" y="380" width="4" height="360" fill="#221a0c" opacity="0.5"/>
+    <rect x="276" y="380" width="4" height="360" fill="#221a0c" opacity="0.5"/>
+    <rect x="286" y="380" width="4" height="360" fill="#221a0c" opacity="0.5"/>
+    <rect x="296" y="380" width="4" height="360" fill="#221a0c" opacity="0.5"/>
+    <!-- Capital top -->
+    <rect x="238" y="365" width="80" height="22" rx="2" fill="#241c0e"/>
+    <rect x="230" y="350" width="96" height="18" rx="2" fill="#1c1408"/>
+    <!-- Base -->
+    <rect x="238" y="730" width="80" height="16" rx="2" fill="#241c0e"/>
+    <rect x="230" y="740" width="96" height="12" rx="2" fill="#1c1408"/>
+    <!-- Torch bracket -->
+    <rect x="298" y="430" width="22" height="6" rx="1" fill="#2e2010"/>
+    <!-- Torch bowl -->
+    <ellipse cx="325" cy="433" rx="12" ry="7" fill="#2a1c08"/>
+    <ellipse cx="325" cy="429" rx="10" ry="5" fill="#3d2a0c"/>
+    <!-- Torch flame glow spread -->
+    <ellipse cx="325" cy="390" rx="60" ry="80" fill="url(#torchA)" filter="url(#blur8)" opacity="0.8"/>
+    <!-- Flame -->
+    <ellipse cx="325" cy="390" rx="14" ry="20" fill="url(#torchA)" filter="url(#blur2)"/>
+    <ellipse cx="325" cy="395" rx="8" ry="14" fill="#ffdd66" opacity="0.9"/>
+    <ellipse cx="325" cy="400" rx="5" ry="9" fill="#ffffff" opacity="0.7"/>
+  </g>
+
+  <!-- Right foreground pillar -->
+  <g>
+    <ellipse cx="1640" cy="680" rx="100" ry="200" fill="url(#glowRight)" filter="url(#blur8)"/>
+    <rect x="1616" y="380" width="52" height="360" rx="3" fill="#1c1408"/>
+    <rect x="1620" y="380" width="4" height="360" fill="#221a0c" opacity="0.5"/>
+    <rect x="1630" y="380" width="4" height="360" fill="#221a0c" opacity="0.5"/>
+    <rect x="1640" y="380" width="4" height="360" fill="#221a0c" opacity="0.5"/>
+    <rect x="1650" y="380" width="4" height="360" fill="#221a0c" opacity="0.5"/>
+    <rect x="1660" y="380" width="4" height="360" fill="#221a0c" opacity="0.5"/>
+    <rect x="1602" y="365" width="80" height="22" rx="2" fill="#241c0e"/>
+    <rect x="1594" y="350" width="96" height="18" rx="2" fill="#1c1408"/>
+    <rect x="1602" y="730" width="80" height="16" rx="2" fill="#241c0e"/>
+    <rect x="1594" y="740" width="96" height="12" rx="2" fill="#1c1408"/>
+    <!-- Torch bracket -->
+    <rect x="1600" y="430" width="22" height="6" rx="1" fill="#2e2010"/>
+    <ellipse cx="1595" cy="433" rx="12" ry="7" fill="#2a1c08"/>
+    <ellipse cx="1595" cy="429" rx="10" ry="5" fill="#3d2a0c"/>
+    <ellipse cx="1595" cy="390" rx="60" ry="80" fill="url(#torchB)" filter="url(#blur8)" opacity="0.8"/>
+    <ellipse cx="1595" cy="390" rx="14" ry="20" fill="url(#torchB)" filter="url(#blur2)"/>
+    <ellipse cx="1595" cy="395" rx="8" ry="14" fill="#ffdd66" opacity="0.9"/>
+    <ellipse cx="1595" cy="400" rx="5" ry="9" fill="#ffffff" opacity="0.7"/>
+  </g>
+
+  <!-- Atmospheric haze horizon -->
+  <rect x="0" y="480" width="1920" height="180" fill="#0a0e1c" opacity="0.35"/>
+  <!-- Vignette edges -->
+  <rect x="0" y="0" width="200" height="1080" fill="#000000" opacity="0.35"/>
+  <rect x="1720" y="0" width="200" height="1080" fill="#000000" opacity="0.35"/>
+  <rect x="0" y="0" width="1920" height="80" fill="#000000" opacity="0.5"/>
+  <rect x="0" y="900" width="1920" height="180" fill="#000000" opacity="0.55"/>
+</svg>

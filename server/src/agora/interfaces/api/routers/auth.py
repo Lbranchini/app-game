@@ -84,7 +84,7 @@ async def google_callback(
     request: Request,
     settings: Annotated[Settings, Depends(get_settings)],
     players: Annotated[PlayerRepository, Depends(get_player_repository)],
-) -> JSONResponse:
+) -> RedirectResponse:
     client = registry.google(settings)
     if client is None:
         raise HTTPException(
@@ -112,7 +112,11 @@ async def google_callback(
         email=player.email,
         name=player.name,
     )
-    return JSONResponse(TokenResponse(access_token=issue_access_token(user)).model_dump())
+    jwt_token = issue_access_token(user)
+    frontend_url = settings.web_origin.rstrip("/")
+    return RedirectResponse(
+        url=f"{frontend_url}/login?token={jwt_token}", status_code=302
+    )
 
 
 def _apple_config_or_none(settings: Settings) -> AppleAuthConfig | None:
@@ -221,7 +225,9 @@ async def apple_callback(
         email=player.email,
         name=player.name,
     )
-    return JSONResponse(TokenResponse(access_token=issue_access_token(user)).model_dump())
+    return JSONResponse(
+        TokenResponse(access_token=issue_access_token(user)).model_dump()
+    )
 
 
 @router.post("/dev-token", include_in_schema=False)
