@@ -1,0 +1,37 @@
+# Run with `pre-commit install` once per clone, then it fires on every git
+# commit. The CI workflow runs the same checks — this just catches them
+# before push.
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-merge-conflict
+      - id: check-added-large-files
+        args: ["--maxkb=500"]
+      - id: check-yaml
+      - id: check-toml
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.4.10
+    hooks:
+      - id: ruff
+        args: ["--fix"]
+        files: ^server/
+      - id: ruff-format
+        files: ^server/
+
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.10.0
+    hooks:
+      - id: mypy
+        files: ^server/src/
+        additional_dependencies:
+          - "pydantic>=2.6"
+          - "pydantic-settings>=2.2"
+          - "fastapi>=0.110"
+          - "sqlalchemy>=2.0"
+          - "types-PyYAML"
+        args: ["--strict", "--config-file=server/pyproject.toml"]
