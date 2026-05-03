@@ -22,6 +22,7 @@ from agora.application.ports import PlayerRepository
 from agora.domain.player import Player
 from agora.interfaces.api.dependencies import get_player_repository
 from agora.interfaces.api.oauth import registry
+from agora.interfaces.api.rate_limit import limiter
 from agora.interfaces.api.security import (
     AuthenticatedUser,
     current_user,
@@ -52,6 +53,7 @@ class MeResponse(BaseModel):
 
 
 @router.get("/google/login")
+@limiter.limit("10/minute")
 async def google_login(
     request: Request,
     settings: Annotated[Settings, Depends(get_settings)],
@@ -71,6 +73,7 @@ async def google_login(
 
 
 @router.get("/google/callback")
+@limiter.limit("10/minute")
 async def google_callback(
     request: Request,
     settings: Annotated[Settings, Depends(get_settings)],
@@ -107,6 +110,7 @@ async def google_callback(
 
 
 @router.post("/apple/callback")
+@limiter.limit("10/minute")
 def apple_callback(
     request: Request,
     settings: Annotated[Settings, Depends(get_settings)],
@@ -127,7 +131,9 @@ def apple_callback(
 
 
 @router.post("/dev-token", include_in_schema=False)
+@limiter.limit("30/minute")
 def dev_token(
+    request: Request,
     settings: Annotated[Settings, Depends(get_settings)],
 ) -> TokenResponse:
     """Local-only helper: issues a JWT for a fake user.

@@ -18,6 +18,7 @@ from fastapi import (
     Depends,
     HTTPException,
     Query,
+    Request,
     WebSocket,
     WebSocketDisconnect,
     status,
@@ -34,7 +35,6 @@ from agora.domain.draft import DraftPhase, DraftState
 from agora.domain.enums import Side
 from agora.domain.match import Action, MatchState
 from agora.domain.match_record import MatchRecord
-from agora.interfaces.api.security import authenticate_ws_token
 from agora.interfaces.api.dependencies import (
     get_arena_repository,
     get_character_repository,
@@ -42,6 +42,8 @@ from agora.interfaces.api.dependencies import (
     get_player_repository,
 )
 from agora.interfaces.api.match_runtime import MatchRuntime
+from agora.interfaces.api.rate_limit import limiter
+from agora.interfaces.api.security import authenticate_ws_token
 
 router = APIRouter(prefix="/match", tags=["match"])
 
@@ -84,7 +86,9 @@ class StartedMatch(BaseModel):
 
 
 @router.post("/dev/start", response_model=StartedMatch)
+@limiter.limit("30/minute")
 def dev_start(
+    request: Request,
     body: DevStartBody,
     runtime: Annotated[MatchRuntime, Depends(_get_runtime)],
 ) -> StartedMatch:
