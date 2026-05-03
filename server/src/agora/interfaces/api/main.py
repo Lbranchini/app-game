@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel, Field
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
@@ -21,6 +24,19 @@ from agora.interfaces.api.routers import (
     unlocks,
 )
 from agora.interfaces.api.settings import get_settings
+
+
+class ErrorResponse(BaseModel):
+    """Single, predictable shape every error response collapses to.
+
+    Clients can pattern-match `code` (a stable machine string) and surface
+    `message` to humans. `details` is free-form for validators or fields
+    that need to point at a specific input.
+    """
+
+    code: str = Field(..., examples=["http_404", "validation_error", "rate_limited"])
+    message: str
+    details: dict[str, object] | None = None
 
 
 def create_app() -> FastAPI:
@@ -48,6 +64,33 @@ def create_app() -> FastAPI:
     app.state.limiter = limiter
     app.add_middleware(SlowAPIMiddleware)
     app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+    # Unified error envelope. FastAPI's default for HTTPException returns
+    # `{"detail": "..."}` which the client has to special-case. Wrap every
+    # explicit HTTPException + every Pydantic ValidationError into the same
+    # `ErrorResponse` shape so the client only learns one decoder.
+    @app.exception_handler(HTTPException)
+    async def _http_exception_handler(_: Request, exc: HTTPException) -> JSONResponse:
+        return JSONResponse(
+            status_code=exc.status_code,
+            content=ErrorResponse(
+                code=f"http_{exc.status_code}",
+                message=str(exc.detail) if exc.detail is not None else "",
+            ).model_dump(),
+            headers=exc.headers,
+        )
+
+    @app.exception_handler(RequestValidationError)
+    async def _validation_handler(_: Request, exc: RequestValidationError) -> JSONResponse:
+        return JSONResponse(
+            status_code=422,
+            content=ErrorResponse(
+                code="validation_error",
+                message="Request payload failed validation.",
+                details={"errors": exc.errors()},
+            ).model_dump(),
+        )
+
     app.include_router(health.router)
     app.include_router(characters.router)
     app.include_router(arenas.router)

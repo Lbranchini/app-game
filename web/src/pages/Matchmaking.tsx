@@ -7,6 +7,11 @@ import { api, auth } from "@/api/client";
 
 type Status = "idle" | "queued" | "found" | "error";
 
+// A stale "I'm in the queue" marker beyond this window means the server
+// almost certainly dropped us; we don't auto-rejoin.
+const QUEUE_STICKY_MS = 10 * 60_000;
+const QUEUE_STORAGE_KEY = "agora.matchmaking.queuedAt";
+
 export function MatchmakingPage() {
   const navigate = useNavigate();
   const [status, setStatus] = useState<Status>("idle");
@@ -33,7 +38,9 @@ export function MatchmakingPage() {
     }
     setError(null);
     setStatus("queued");
-    setQueuedAt(Date.now());
+    const startedAt = Date.now();
+    setQueuedAt(startedAt);
+    window.sessionStorage.setItem(QUEUE_STORAGE_KEY, String(startedAt));
 
     const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
     const ws = new WebSocket(
@@ -45,6 +52,7 @@ export function MatchmakingPage() {
         setStatus("queued");
       } else if (frame.type === "match_found") {
         setStatus("found");
+        window.sessionStorage.removeItem(QUEUE_STORAGE_KEY);
         navigate(`/draft/${frame.draft_id}?side=${frame.side}`);
       }
     };
@@ -62,7 +70,27 @@ export function MatchmakingPage() {
     wsRef.current?.send(JSON.stringify({ type: "leave" }));
     setStatus("idle");
     setQueuedAt(null);
+    window.sessionStorage.removeItem(QUEUE_STORAGE_KEY);
   };
+
+  // If a recent queue marker survived a reload, auto-rejoin so the player
+  // doesn't silently drop out of the queue when refreshing the tab.
+  // Runs once on mount; ignored if the marker is stale.
+  useEffect(() => {
+    const stored = window.sessionStorage.getItem(QUEUE_STORAGE_KEY);
+    if (!stored) return;
+    const parsed = Number(stored);
+    if (!Number.isFinite(parsed) || Date.now() - parsed > QUEUE_STICKY_MS) {
+      window.sessionStorage.removeItem(QUEUE_STORAGE_KEY);
+      return;
+    }
+    if (!auth.getToken()) return;  // login handler will route them away anyway
+    join();
+    // We intentionally re-use the original timestamp so the elapsed counter
+    // continues from where it left off.
+    setQueuedAt(parsed);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const elapsedSec = queuedAt ? Math.floor((now - queuedAt) / 1000) : 0;
   const elo = me.data?.player?.elo ?? null;
