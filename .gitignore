@@ -27,6 +27,9 @@ Thumbs.db
 *.db
 *.db-journal
 
+# Generated OpenAPI dump (regenerated via `make openapi`)
+server/openapi.json
+
 # Environment variables
 .env
 .env.local

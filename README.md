@@ -90,6 +90,19 @@ npm install
 npm run dev                 # serves on :5173 with proxy to :8000
 ```
 
+### Frontend types from OpenAPI
+
+The web client used to mirror server types by hand under
+`web/src/types/api.ts`. To stop drift:
+
+```bash
+make gen-types          # dumps server/openapi.json then runs openapi-typescript
+```
+
+The generated mirror lives at `web/src/types/api.gen.ts` and is checked
+in for IDE support. Re-run after every server-side request/response
+schema change.
+
 ### Database migrations (Alembic)
 
 Dev/test still uses SQLAlchemy's `metadata.create_all()` so the SQLite

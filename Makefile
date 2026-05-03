@@ -3,7 +3,8 @@ SHELL := /bin/bash
 COMPOSE := docker compose
 
 .PHONY: help up up-build up-d up-postgres down restart logs ps pull \
-        ci ci-server ci-web test test-server test-web lint typecheck
+        ci ci-server ci-web test test-server test-web lint typecheck \
+        openapi gen-types
 
 help:
 	@echo "Targets disponiveis:"
@@ -23,6 +24,8 @@ help:
 	@echo "  make test         - Atalho para pytest do server"
 	@echo "  make lint         - ruff check em src/ + tests/"
 	@echo "  make typecheck    - mypy --strict em src/"
+	@echo "  make openapi      - Dump server/openapi.json a partir do FastAPI app"
+	@echo "  make gen-types    - openapi.json -> web/src/types/api.gen.ts"
 
 up:
 	$(COMPOSE) up
@@ -80,3 +83,14 @@ lint:
 
 typecheck:
 	cd server && mypy --strict src
+
+# ── OpenAPI codegen ─────────────────────────────────────────────────────────
+# Dump the FastAPI app's schema to a local file the web can consume without
+# needing a running server. Then regenerate the typed client mirror.
+
+openapi:
+	cd server && python -c "import json; from agora.interfaces.api.main import app; print(json.dumps(app.openapi(), indent=2))" > openapi.json
+	@echo "Wrote server/openapi.json"
+
+gen-types: openapi
+	cd web && npm run gen:api
