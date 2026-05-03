@@ -54,3 +54,17 @@ packages = ["agora"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-v --strict-markers"
+
+[tool.coverage.run]
+branch = true
+source = ["agora"]
+omit = ["src/agora/interfaces/cli.py"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = false
+exclude_also = [
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+    "@(abc\\.)?abstractmethod",
+]
