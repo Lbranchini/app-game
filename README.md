@@ -90,6 +90,25 @@ npm install
 npm run dev                 # serves on :5173 with proxy to :8000
 ```
 
+### Database migrations (Alembic)
+
+Dev/test still uses SQLAlchemy's `metadata.create_all()` so the SQLite
+file appears on first run with no extra step. **Production / Postgres
+deploys must run Alembic** to get the indexes and server-side
+defaults:
+
+```bash
+cd server
+alembic upgrade head            # apply all pending migrations
+alembic current                 # which revision is the DB at
+alembic revision --autogenerate -m "describe change"
+```
+
+The revision chain starts at `0001_initial` and lives under
+`server/alembic/versions/`. The migration env reads `DATABASE_URL`
+from the same settings layer the API uses, so a single env var drives
+both.
+
 ## Status
 
 Phase 0 (planning) complete. Phase 1 (engine of rules) has a working **vertical slice**: 3 characters (Achilles / Athena / Anubis) covering damage, support, and DoT. Engine handles damage, healing, cooldowns, costs, alternating turns, seeded RNG, win condition, plus statuses (poison, damage reduction, destructible shield, damage buff, invulnerable, piercing). Bot-vs-bot CLI runs full matches end-to-end.
