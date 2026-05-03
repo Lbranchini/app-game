@@ -382,6 +382,41 @@ export function BattlePage() {
   };
 
   if (!state) {
+    // Three sub-cases collapse into "no state": loading a known match id,
+    // an error on initial GET, and the dev landing page. Each gets its own
+    // affordance instead of all three rendering the same Start button.
+    const loadingExisting = Boolean(params.matchId) && error === null;
+    const failedExisting = Boolean(params.matchId) && error !== null;
+
+    if (loadingExisting) {
+      return <BattleLoadingSkeleton matchId={params.matchId!} />;
+    }
+    if (failedExisting) {
+      return (
+        <div className="mx-auto mt-16 max-w-md rounded-xl bg-slate-900 p-6 ring-1 ring-rose-500/40">
+          <h2 className="text-xl font-bold text-rose-300">Couldn't load match</h2>
+          <p className="mt-2 break-words text-sm text-slate-400">{error}</p>
+          <div className="mt-4 flex gap-3">
+            <button
+              type="button"
+              onClick={() => {
+                setError(null);
+                window.location.reload();
+              }}
+              className="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold hover:bg-blue-500"
+            >
+              Retry
+            </button>
+            <a
+              href="/matchmaking"
+              className="rounded-md bg-slate-800 px-4 py-2 text-sm ring-1 ring-slate-700 hover:bg-slate-700"
+            >
+              Back to matchmaking
+            </a>
+          </div>
+        </div>
+      );
+    }
     return (
       <div className="p-8">
         <h2 className="mb-4 text-2xl font-bold">Battle (demo)</h2>
@@ -1041,6 +1076,42 @@ function FloatingNumbers({ items }: { items: FloatingNumber[] }) {
           {item.value}
         </motion.div>
       ))}
+    </div>
+  );
+}
+
+function BattleLoadingSkeleton({ matchId }: { matchId: string }) {
+  return (
+    <div className="mx-auto flex min-h-screen max-w-5xl flex-col gap-4 px-4 py-6 animate-pulse">
+      <div className="rounded-xl bg-slate-900/80 px-5 py-3 ring-1 ring-slate-800">
+        <div className="h-4 w-40 rounded bg-slate-800" />
+        <div className="mt-2 h-3 w-24 rounded bg-slate-800/60" />
+      </div>
+      <div className="rounded-xl bg-slate-900/40 p-4 ring-1 ring-slate-800">
+        <div className="grid grid-cols-3 gap-3">
+          {[0, 1, 2].map((i) => (
+            <div key={i} className="rounded-lg bg-slate-800/60 p-3">
+              <div className="h-12 w-full rounded bg-slate-800" />
+              <div className="mt-2 h-2 w-3/4 rounded bg-slate-800" />
+              <div className="mt-1 h-2 w-1/2 rounded bg-slate-800/70" />
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className="rounded-xl bg-slate-900/80 px-5 py-3 ring-1 ring-slate-800">
+        <div className="h-4 w-32 rounded bg-slate-800" />
+      </div>
+      <div className="rounded-xl bg-slate-900/40 p-4 ring-1 ring-slate-800">
+        <div className="grid grid-cols-3 gap-3">
+          {[0, 1, 2].map((i) => (
+            <div key={i} className="rounded-lg bg-slate-800/60 p-3">
+              <div className="h-12 w-full rounded bg-slate-800" />
+              <div className="mt-2 h-2 w-3/4 rounded bg-slate-800" />
+            </div>
+          ))}
+        </div>
+      </div>
+      <p className="text-center text-xs text-slate-500">Loading match {matchId.slice(0, 8)}…</p>
     </div>
   );
 }
