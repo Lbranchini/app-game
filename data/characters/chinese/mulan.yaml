@@ -24,7 +24,8 @@ skills:
     cooldown: 3
     target: self
     effects:
-      - { kind: invulnerable, duration: 1 }
+      # Stealth keeps Mulan un-targetable; the buff fuels her next strike.
+      - { kind: status, status: stealth, duration: 2 }
       - { kind: damage_buff, value: 10, duration: 2 }
 
   - id: family_honor

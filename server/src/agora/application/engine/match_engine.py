@@ -22,6 +22,7 @@ from agora.application.engine.skill_validator import (
     check_cooldown,
     validate_payment,
 )
+from agora.application.engine.status_predicates import is_stealthed
 from agora.application.engine.status_ticks import STATUS_TICK_HANDLERS
 from agora.application.ports import ArenaRepository, CharacterRepository, RandomSource
 from agora.domain.arena import Arena
@@ -193,6 +194,26 @@ class MatchEngine:
             )
             return
 
+        # Stealth: a single-target enemy skill cannot pick a stealthed enemy.
+        # AOE skills auto-filter the stealthed targets out in `_resolve_targets`.
+        if (
+            skill.target is TargetKind.SINGLE_ENEMY
+            and action.target_ids
+        ):
+            picked = self._find_character(opponent, action.target_ids[0])
+            if picked is not None and is_stealthed(picked):
+                events.append(
+                    Event(
+                        kind="invalid_action",
+                        details={
+                            "reason": "target_stealthed",
+                            "skill": skill.id,
+                            "target": picked.id,
+                        },
+                    )
+                )
+                return
+
         for check in (check_can_act(actor, skill), check_cooldown(actor, skill)):
             if isinstance(check, ValidationFailure):
                 events.append(
@@ -246,6 +267,25 @@ class MatchEngine:
         if skill.cooldown > 0:
             actor.cooldowns[skill.id] = skill.cooldown
 
+        # Stealth breaks the moment its bearer commits an offensive action.
+        # Keeps the rule symmetric: defensive/utility skills (self/ally) leave
+        # stealth intact, so a stealthed character can buff allies and stay
+        # hidden the same turn.
+        if skill.target in (TargetKind.SINGLE_ENEMY, TargetKind.ALL_ENEMIES):
+            stealth = next((s for s in actor.statuses if s.name == "stealth"), None)
+            if stealth is not None:
+                actor.statuses.remove(stealth)
+                events.append(
+                    Event(
+                        kind="status_expired",
+                        details={
+                            "character": actor.id,
+                            "status": "stealth",
+                            "consumed": True,
+                        },
+                    )
+                )
+
     def _tick_statuses(self, player: PlayerState, events: list[Event]) -> None:
         for character in player.characters:
             if not character.alive:
@@ -293,7 +333,8 @@ class MatchEngine:
         if skill.target is TargetKind.SELF:
             return [actor]
         if skill.target is TargetKind.ALL_ENEMIES:
-            return [c for c in opponent.characters if c.alive]
+            # Stealth shields against being targeted at all — including AoE.
+            return [c for c in opponent.characters if c.alive and not is_stealthed(c)]
         if skill.target is TargetKind.ALL_ALLIES:
             return [c for c in active.characters if c.alive]
         if skill.target is TargetKind.SINGLE_ENEMY:

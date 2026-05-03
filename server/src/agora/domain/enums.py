@@ -74,6 +74,9 @@ class Side(str, Enum):
 
 # Status names used as opaque strings in data files.
 # Keep this set in sync with the engine handlers.
+# `stealth` is intentionally NOT here — it's a self-buff, not an affliction,
+# so a `remove_afflictions` cleanse must not strip it from the stealthed
+# character.
 AFFLICTION_NAMES: frozenset[str] = frozenset(
     {"poison", "bleed", "stun", "silence", "disarm", "drained", "marked", "vulnerable"}
 )

@@ -32,6 +32,14 @@ def is_drained(character: CharacterState) -> bool:
     return has_status(character, "drained")
 
 
+def is_stealthed(character: CharacterState) -> bool:
+    """Stealth makes the character un-targetable by single-target enemy skills.
+
+    Broken when the stealthed character attacks (see `MatchEngine`).
+    """
+    return has_status(character, "stealth")
+
+
 def total_damage_reduction(character: CharacterState) -> int:
     return sum(s.value for s in character.statuses if s.name == "damage_reduction")
 

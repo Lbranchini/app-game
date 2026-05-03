@@ -34,5 +34,8 @@ skills:
     duration: 2
     target: self
     effects:
+      # 2 turns of stealth; the loaded damage_buff makes the strike out of
+      # stealth land hard. (The "first attack triple-damage piercing" rider
+      # from the design doc waits on conditional-damage YAML support.)
+      - { kind: status, status: stealth, duration: 2 }
       - { kind: damage_buff, value: 25, duration: 2 }
-      - { kind: damage_reduction, value: 5, duration: 2 }
