@@ -49,6 +49,12 @@ TURN_DURATION = timedelta(seconds=60)
 # Skipped entirely for dev matches (synthetic player ids).
 DISCONNECT_GRACE = timedelta(seconds=30)
 
+# How often the server pushes a `{"type": "heartbeat"}` frame to each socket
+# attached to a match. Failed sends drop the socket immediately, which kicks
+# off the disconnect/forfeit pipeline — without this we'd only notice a dead
+# connection when the OS-level TCP timeout fires (default ~2h on Linux).
+HEARTBEAT_INTERVAL_SECONDS = 15.0
+
 
 @dataclass
 class _MatchSession:
@@ -76,6 +82,9 @@ class _MatchSession:
     disconnected_since: dict[str, datetime] = field(default_factory=dict)
     # Per-player forfeit watchers. Cancelled on reconnect.
     forfeit_tasks: dict[str, asyncio.Task[None]] = field(default_factory=dict)
+    # One heartbeat loop per match; armed when first socket attaches, torn
+    # down when no sockets remain or the match finishes.
+    heartbeat_task: asyncio.Task[None] | None = None
 
 
 class MatchRuntime:
@@ -237,8 +246,9 @@ class MatchRuntime:
             if task and not task.done():
                 task.cancel()
             await self._broadcast_presence(match_id, player_id, "reconnected")
-        # First attach lazily arms the deadline watcher.
+        # First attach lazily arms the deadline watcher + the heartbeat loop.
         await self._ensure_deadline_watcher(match_id)
+        self._ensure_heartbeat(match_id)
 
     async def detach(self, match_id: str, ws: WebSocket) -> None:
         session = self._sessions.get(match_id)
@@ -339,6 +349,47 @@ class MatchRuntime:
             if wait > 0:
                 await asyncio.sleep(wait)
             await self._auto_resolve_if_due(match_id, deadline)
+        except asyncio.CancelledError:
+            return
+
+    def _ensure_heartbeat(self, match_id: str) -> None:
+        session = self._sessions.get(match_id)
+        if session is None:
+            return
+        if session.heartbeat_task and not session.heartbeat_task.done():
+            return  # already running
+        session.heartbeat_task = asyncio.create_task(self._heartbeat_loop(match_id))
+
+    async def _heartbeat_loop(self, match_id: str) -> None:
+        """Push application-level pings until the match ends.
+
+        Each tick we broadcast a `heartbeat` frame; failed sends are detached
+        through the existing broadcast path, which then runs the disconnect
+        pipeline (forfeit grace, presence frame to the surviving side).
+        """
+        try:
+            while True:
+                await asyncio.sleep(HEARTBEAT_INTERVAL_SECONDS)
+                session = self._sessions.get(match_id)
+                if session is None:
+                    return
+                if session.state.finished:
+                    return
+                if not session.sockets:
+                    # Nobody connected; let the loop end. attach() will rearm.
+                    session.heartbeat_task = None
+                    return
+                payload: dict[str, object] = {
+                    "type": "heartbeat",
+                    "ts": datetime.utcnow().isoformat(),
+                }
+                for ws in self.sockets_for(match_id):
+                    try:
+                        await ws.send_json(payload)
+                    except Exception:
+                        # send_json failed → socket is dead; same recovery
+                        # path as a normal disconnect.
+                        await self.detach(match_id, ws)
         except asyncio.CancelledError:
             return
 
@@ -520,6 +571,12 @@ class MatchRuntime:
                     self._unlocks.apply(player.id)
 
         session.persisted = True
+        # Match is over — tear down the heartbeat loop too. The deadline
+        # watcher already self-cancels via state.finished, but the heartbeat
+        # is keyed off "any socket attached" so we have to stop it here.
+        if session.heartbeat_task and not session.heartbeat_task.done():
+            session.heartbeat_task.cancel()
+            session.heartbeat_task = None
 
     def sockets_for(self, match_id: str) -> list[WebSocket]:
         session = self._sessions.get(match_id)
