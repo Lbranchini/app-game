@@ -28,12 +28,15 @@ def create_app() -> FastAPI:
     )
     # Authlib uses Starlette's session to round-trip OAuth state across redirects.
     app.add_middleware(SessionMiddleware, secret_key=settings.jwt_signing_secret)
+    # Tightened from `allow_headers=["*"]` to the only headers the web client
+    # actually sends. The browser preflight rejects anything outside this set,
+    # which is the small DoS-posture win the audit called out.
     app.add_middleware(
         CORSMiddleware,
         allow_origins=[settings.web_origin],
         allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
+        allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+        allow_headers=["Authorization", "Content-Type"],
     )
     app.include_router(health.router)
     app.include_router(characters.router)

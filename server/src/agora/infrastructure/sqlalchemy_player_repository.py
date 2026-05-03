@@ -21,6 +21,7 @@ from sqlalchemy import (
     Integer,
     String,
     create_engine,
+    func,
     select,
     update,
 )
@@ -52,8 +53,14 @@ class _PlayerRow(_Base):
         String, default=lambda: json.dumps(list(DEFAULT_STARTERS))
     )
     progress_json: Mapped[str] = mapped_column(String, default="{}")
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    last_seen: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    # `func.now()` resolves on the database side so SQLite and Postgres both
+    # store a coherent timestamp without Python clock drift across processes.
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), index=True
+    )
+    last_seen: Mapped[datetime | None] = mapped_column(
+        DateTime, nullable=True, index=True
+    )
 
 
 def _to_domain(row: _PlayerRow) -> Player:

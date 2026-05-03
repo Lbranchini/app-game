@@ -14,9 +14,11 @@ from typing import cast
 from sqlalchemy import (
     DateTime,
     Engine,
+    Index,
     Integer,
     String,
     create_engine,
+    func,
     or_,
     select,
 )
@@ -47,10 +49,21 @@ class _MatchRow(_Base):
     winner: Mapped[str | None] = mapped_column(String, nullable=True)
     turns: Mapped[int] = mapped_column(Integer, default=0)
     seed: Mapped[int] = mapped_column(Integer, default=0)
-    started_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    # Server-side default keeps SQLite + Postgres in sync.
+    started_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), index=True
+    )
     ended_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     elo_delta_a: Mapped[int | None] = mapped_column(Integer, nullable=True)
     elo_delta_b: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+    # Composite indexes for the two hot lookups: "recent matches for a
+    # given player" (history page) on either side. Postgres / SQLite both
+    # honour these the same way.
+    __table_args__ = (
+        Index("ix_matches_a_started_at", "side_a_player_id", "started_at"),
+        Index("ix_matches_b_started_at", "side_b_player_id", "started_at"),
+    )
 
 
 def _to_domain(row: _MatchRow) -> MatchRecord:
