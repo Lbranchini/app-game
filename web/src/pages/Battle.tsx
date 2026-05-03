@@ -145,6 +145,22 @@ export function BattlePage() {
   const floatId = useRef(0);
   const splashSeenRef = useRef<Set<string>>(new Set());
   const queueRef = useRef<QueuedAction[]>([]);
+  // Mirror state into a ref so async callbacks (ws.onclose) read the latest
+  // value without being re-created on every render.
+  const stateRef = useRef<MatchState | null>(null);
+  // Reconnect bookkeeping: ref-based so backoff doesn't churn React renders.
+  const wantConnectedRef = useRef(false);
+  const reconnectAttemptsRef = useRef(0);
+  const reconnectTimerRef = useRef<number | null>(null);
+  const [reconnectAttempt, setReconnectAttempt] = useState(0);
+  const [nextReconnectAtMs, setNextReconnectAtMs] = useState<number | null>(null);
+  const [reconnectGaveUp, setReconnectGaveUp] = useState(false);
+
+  // 1s, 2s, 4s, 8s, 16s — capped so we don't spin forever; 6 attempts cover
+  // the server's 30s forfeit grace plus a safety buffer.
+  const MAX_RECONNECT_ATTEMPTS = 6;
+  const computeBackoffMs = (attempt: number): number =>
+    Math.min(16_000, 1_000 * 2 ** Math.min(attempt, 4));
 
   const toggleMute = () => {
     setMuted((prev) => {
@@ -171,7 +187,22 @@ export function BattlePage() {
     return map;
   }, [floats]);
 
-  useEffect(() => () => wsRef.current?.close(), []);
+  useEffect(() => {
+    return () => {
+      // User left the page — stop reconnect attempts and close cleanly.
+      wantConnectedRef.current = false;
+      if (reconnectTimerRef.current !== null) {
+        window.clearTimeout(reconnectTimerRef.current);
+        reconnectTimerRef.current = null;
+      }
+      wsRef.current?.close();
+    };
+  }, []);
+
+  // Keep stateRef pointed at the current state for use inside async callbacks.
+  useEffect(() => {
+    stateRef.current = state;
+  }, [state]);
 
   useEffect(() => {
     const handle = window.setInterval(() => setNow(Date.now()), 250);
@@ -276,15 +307,46 @@ export function BattlePage() {
     }, 1400);
   };
 
+  const scheduleReconnect = (id: string) => {
+    if (!wantConnectedRef.current) return;
+    if (reconnectTimerRef.current !== null) return;  // already scheduled
+    if (reconnectAttemptsRef.current >= MAX_RECONNECT_ATTEMPTS) {
+      setReconnectGaveUp(true);
+      return;
+    }
+    const delay = computeBackoffMs(reconnectAttemptsRef.current);
+    reconnectAttemptsRef.current += 1;
+    setReconnectAttempt(reconnectAttemptsRef.current);
+    setNextReconnectAtMs(Date.now() + delay);
+    reconnectTimerRef.current = window.setTimeout(() => {
+      reconnectTimerRef.current = null;
+      connect(id);
+    }, delay);
+  };
+
   const connect = (id: string) => {
+    wantConnectedRef.current = true;
     const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
     const token = auth.getToken();
     const url = new URL(`${proto}//${window.location.host}/api/match/ws/${id}`);
     if (token) url.searchParams.set("token", token);
     setWsStatus("connecting");
     const ws = new WebSocket(url.toString());
-    ws.onopen = () => setWsStatus("open");
-    ws.onclose = () => setWsStatus("closed");
+    ws.onopen = () => {
+      setWsStatus("open");
+      reconnectAttemptsRef.current = 0;
+      setReconnectAttempt(0);
+      setNextReconnectAtMs(null);
+      setReconnectGaveUp(false);
+    };
+    ws.onclose = () => {
+      setWsStatus("closed");
+      // Schedule a reconnect unless the user navigated away or the match
+      // already ended (server's final state frame would have finished it).
+      if (wantConnectedRef.current && !stateRef.current?.finished) {
+        scheduleReconnect(id);
+      }
+    };
     ws.onmessage = (msg) => {
       const frame = JSON.parse(msg.data);
       if (frame.type === "state") {
@@ -354,6 +416,13 @@ export function BattlePage() {
   const offlineBanner = state.finished ? null : opponentOffline;
   const offlineSecondsLeft = offlineBanner ? Math.max(0, Math.ceil((offlineBanner.forfeitDeadlineMs - now) / 1000)) : 0;
 
+  // Self-disconnect overlay: shown when we've actually been dropped (status
+  // closed, not just the initial "connecting" handshake) and the match isn't
+  // yet finished. Goes away as soon as the WebSocket reopens or the server
+  // forfeits us.
+  const showSelfDisconnect = !state.finished && wsStatus === "closed";
+  const reconnectIn = nextReconnectAtMs ? Math.max(0, Math.ceil((nextReconnectAtMs - now) / 1000)) : 0;
+
   const onSkillClick = (character: CharacterState, skill: Skill) => {
     const paid = computePayment(skill.cost, remainingPool);
     if (paid === null) return;
@@ -410,6 +479,23 @@ export function BattlePage() {
       <div className="absolute inset-0 bg-slate-950/70 pointer-events-none" />
       <div className="relative flex flex-col min-h-screen">
       <VsSplash visible={splashFor === state.match_id} teamA={state.a.characters} teamB={state.b.characters} />
+
+      {showSelfDisconnect && (
+        <ReconnectOverlay
+          gaveUp={reconnectGaveUp}
+          attempt={reconnectAttempt}
+          maxAttempts={MAX_RECONNECT_ATTEMPTS}
+          secondsUntilNext={reconnectIn}
+          onRetry={() => {
+            if (matchId) {
+              reconnectAttemptsRef.current = 0;
+              setReconnectAttempt(0);
+              setReconnectGaveUp(false);
+              connect(matchId);
+            }
+          }}
+        />
+      )}
 
       {offlineBanner && (
         <div className="mx-4 mt-4 flex items-center rounded-lg bg-amber-500/10 px-4 py-2 text-xs text-amber-200 ring-1 ring-amber-500/40">
@@ -955,6 +1041,65 @@ function FloatingNumbers({ items }: { items: FloatingNumber[] }) {
           {item.value}
         </motion.div>
       ))}
+    </div>
+  );
+}
+
+function ReconnectOverlay({
+  gaveUp,
+  attempt,
+  maxAttempts,
+  secondsUntilNext,
+  onRetry,
+}: {
+  gaveUp: boolean;
+  attempt: number;
+  maxAttempts: number;
+  secondsUntilNext: number;
+  onRetry: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-950/85 backdrop-blur-sm">
+      <div className="max-w-md rounded-xl bg-slate-900 px-6 py-5 text-center ring-1 ring-slate-800 shadow-xl">
+        {gaveUp ? (
+          <>
+            <div className="mb-2 text-2xl">⚠</div>
+            <div className="text-lg font-bold text-rose-300">Connection lost</div>
+            <p className="mt-2 text-sm text-slate-400">
+              We couldn't restore the link to the server. The match may have
+              been forfeited.
+            </p>
+            <button
+              type="button"
+              onClick={onRetry}
+              className="mt-4 rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold hover:bg-blue-500"
+            >
+              Try again
+            </button>
+          </>
+        ) : (
+          <>
+            <div className="mx-auto mb-3 h-8 w-8 animate-spin rounded-full border-2 border-slate-700 border-t-amber-400" />
+            <div className="text-lg font-bold text-amber-200">Reconnecting…</div>
+            <p className="mt-2 text-xs text-slate-400">
+              attempt {Math.max(1, attempt)} / {maxAttempts}
+              {secondsUntilNext > 0 && (
+                <>
+                  {" · next in "}
+                  <span className="font-mono text-slate-200">{secondsUntilNext}s</span>
+                </>
+              )}
+            </p>
+            <button
+              type="button"
+              onClick={onRetry}
+              className="mt-4 rounded-md bg-slate-800 px-3 py-1.5 text-xs text-slate-300 ring-1 ring-slate-700 hover:bg-slate-700"
+            >
+              Retry now
+            </button>
+          </>
+        )}
+      </div>
     </div>
   );
 }
