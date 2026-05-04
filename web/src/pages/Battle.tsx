@@ -131,6 +131,9 @@ export function BattlePage() {
   const [now, setNow] = useState<number>(() => Date.now());
   const [splashFor, setSplashFor] = useState<string | null>(null);
   const [wsStatus, setWsStatus] = useState<"connecting" | "open" | "closed">("connecting");
+  // Which side this socket controls (real matches only). Null in dev hot-
+  // seat — the bottom team then follows whoever's acting, like before.
+  const [yourSide, setYourSide] = useState<"A" | "B" | null>(null);
   const [opponentOffline, setOpponentOffline] = useState<{ playerId: string; forfeitDeadlineMs: number } | null>(null);
   const [muted, setMuted] = useState<boolean>(() =>
     typeof window === "undefined" ? false : window.localStorage.getItem(MUTE_KEY) === "1"
@@ -353,6 +356,11 @@ export function BattlePage() {
       if (frame.type === "state") {
         setState(frame.state);
         setQueue([]);
+        // Initial state frame carries the side this socket controls. Dev
+        // hot-seat sends null and we leave the local state as-is.
+        if (frame.your_side === "A" || frame.your_side === "B") {
+          setYourSide(frame.your_side);
+        }
         if (Array.isArray(frame.events)) {
           const newEvents = frame.events as MatchEvent[];
           setEvents((prev) => (frame.auto_resolved ? [...prev, { kind: "turn_auto_resolved", details: {} }, ...newEvents] : [...prev, ...newEvents]));
@@ -436,8 +444,17 @@ export function BattlePage() {
     );
   }
 
-  const activePlayer = state.current_side === "A" ? state.a : state.b;
-  const opponent = state.current_side === "A" ? state.b : state.a;
+  // In real matches `yourSide` pins the bottom team to whoever this socket
+  // controls — Bob never sees Alice's controls and vice versa, even on
+  // her turn. Dev hot-seat (`yourSide === null`) keeps following whoever
+  // is currently acting so the same client can play both sides locally.
+  const mySide = yourSide ?? state.current_side;
+  const activePlayer = mySide === "A" ? state.a : state.b;
+  const opponent = mySide === "A" ? state.b : state.a;
+  // Only the side whose turn it is may queue actions. In dev hot-seat
+  // mySide always equals current_side so this is always true; in real
+  // matches it locks the controls during the opponent's turn.
+  const isMyTurn = state.current_side === mySide;
   const remainingPool = queue.reduce((pool, action) => subtractPayment(pool, action.paid), activePlayer.essences);
   const charactersAlreadyActing = new Set(queue.map((a) => a.character_id));
 
@@ -460,6 +477,7 @@ export function BattlePage() {
   const reconnectIn = nextReconnectAtMs ? Math.max(0, Math.ceil((nextReconnectAtMs - now) / 1000)) : 0;
 
   const onSkillClick = (character: CharacterState, skill: Skill) => {
+    if (!isMyTurn) return;  // server would reject anyway; bail before flicker
     const paid = computePayment(skill.cost, remainingPool);
     if (paid === null) return;
 
@@ -557,10 +575,12 @@ export function BattlePage() {
             </div>
             <div className="flex items-center gap-3">
               <div className="text-right text-sm">
-                <div className="text-xs uppercase tracking-wider text-slate-500">Acting · {secondsLeft}s</div>
+                <div className="text-xs uppercase tracking-wider text-slate-500">
+                  {isMyTurn ? `Your turn · ${secondsLeft}s` : `Opponent's turn · ${secondsLeft}s`}
+                </div>
                 <div
                   className={
-                    state.current_side === "A"
+                    isMyTurn
                       ? "font-bold text-emerald-400"
                       : "font-bold text-rose-400"
                   }
@@ -750,14 +770,16 @@ export function BattlePage() {
                   <button
                     type="button"
                     onClick={submitTurn}
-                    className="rounded-md bg-blue-600 px-3 py-2 text-xs font-medium hover:bg-blue-500 w-full"
+                    disabled={!isMyTurn}
+                    className="rounded-md bg-blue-600 px-3 py-2 text-xs font-medium hover:bg-blue-500 w-full disabled:cursor-not-allowed disabled:bg-slate-700 disabled:text-slate-500"
                   >
-                    Confirm turn
+                    {isMyTurn ? "Confirm turn" : "Opponent's turn"}
                   </button>
                   <button
                     type="button"
                     onClick={() => setQueue([])}
-                    className="rounded-md bg-slate-700 px-3 py-2 text-xs font-medium hover:bg-slate-600 w-full"
+                    disabled={!isMyTurn}
+                    className="rounded-md bg-slate-700 px-3 py-2 text-xs font-medium hover:bg-slate-600 w-full disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     Clear
                   </button>

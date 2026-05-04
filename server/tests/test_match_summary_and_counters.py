@@ -212,25 +212,35 @@ def test_real_match_records_damage_and_status_counters(
     alice_token = issue_access_token(
         AuthenticatedUser(sub="google:alice", email=None, name=None)
     )
-    with client.websocket_connect(f"/match/ws/mt?token={alice_token}") as ws:
-        ws.receive_json()
-        # Anubis casts Choking Wraps on B's Achilles — deals 10 damage and applies poison.
+    bob_token = issue_access_token(
+        AuthenticatedUser(sub="google:bob", email=None, name=None)
+    )
+    with (
+        client.websocket_connect(f"/match/ws/mt?token={alice_token}") as alice_ws,
+        client.websocket_connect(f"/match/ws/mt?token={bob_token}") as bob_ws,
+    ):
+        alice_ws.receive_json()
+        bob_ws.receive_json()
+        # Anubis (side A) casts Choking Wraps on B's Achilles — 10 damage + poison.
         action = Action(
             character_id="anubis",
             skill_id="wraps",
             target_ids=["achilles"],
             paid={Essence.BLOOD: 1},
         )
-        ws.send_json({"type": "actions", "actions": [action.model_dump()]})
-        ws.receive_json()
+        alice_ws.send_json({"type": "actions", "actions": [action.model_dump()]})
+        alice_ws.receive_json()
+        bob_ws.receive_json()
 
         # Force B's HP to 0 on the *current* session state — `rt.get` returns
         # the live reference, which the engine deep-copied after the previous
-        # turn. Then a no-op turn flips the match to finished.
+        # turn. Bob (now the active side) submits an empty turn so the engine
+        # flips the match to finished and the counters fire.
         for character in rt.get("mt").b.characters:
             character.hp = 0
-        ws.send_json({"type": "actions", "actions": []})
-        ws.receive_json()
+        bob_ws.send_json({"type": "actions", "actions": []})
+        bob_ws.receive_json()
+        alice_ws.receive_json()
 
     after_a = players.get(a.id)
     assert after_a.progress["total_damage_dealt"] >= 10

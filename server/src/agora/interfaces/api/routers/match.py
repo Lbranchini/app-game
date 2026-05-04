@@ -158,6 +158,11 @@ async def match_ws(
     # token, and the player_id flows down to the runtime so disconnects can
     # start a forfeit clock.
     player_id: str | None = None
+    # `acting_side` is None for dev matches (hot-seat: any side may act);
+    # for real matches it pins each socket to its side so a player can't
+    # submit actions during the *opponent's* turn (the engine would
+    # otherwise apply them to whichever side's turn it currently is).
+    acting_side: Side | None = None
     if not _is_dev_match(side_a_id, side_b_id):
         try:
             user = authenticate_ws_token(token)
@@ -168,11 +173,23 @@ async def match_ws(
             await websocket.close(code=4403, reason="not a participant")
             return
         player_id = user.sub
+        acting_side = Side.A if user.sub == side_a_id else Side.B
 
     await websocket.accept()
     await runtime.attach(match_id, websocket, player_id=player_id)
     state = runtime.get(match_id)
-    await websocket.send_json({"type": "state", "state": state.model_dump(mode="json")})
+    # The initial state frame carries `your_side` so the client can pin its
+    # UI to the right team — without it both players would see the active
+    # side's controls and could try to submit during the opponent's turn.
+    # Dev hot-seat is null so the existing "active side at bottom" fallback
+    # keeps working for the demo flow.
+    await websocket.send_json(
+        {
+            "type": "state",
+            "state": state.model_dump(mode="json"),
+            "your_side": acting_side.value if acting_side is not None else None,
+        }
+    )
 
     try:
         while True:
@@ -185,6 +202,22 @@ async def match_ws(
             except Exception as exc:
                 await websocket.send_json({"type": "error", "detail": f"bad action: {exc}"})
                 continue
+
+            # Refuse out-of-turn submissions in real matches. We re-read the
+            # runtime's view (not the cached `state` from above) so a turn
+            # the server resolved while this socket was idle is reflected.
+            if acting_side is not None:
+                current_state = runtime.get(match_id)
+                if current_state.finished:
+                    await websocket.send_json(
+                        {"type": "error", "detail": "match is over"}
+                    )
+                    continue
+                if current_state.current_side is not acting_side:
+                    await websocket.send_json(
+                        {"type": "error", "detail": "not your turn"}
+                    )
+                    continue
 
             # `submit_actions` resolves the turn, persists when final, and
             # fans the new state out to every attached socket itself.
