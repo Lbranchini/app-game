@@ -144,6 +144,7 @@ class MatchEngine:
             self._execute_action(new_state, active, opponent, action, events)
 
         self._decrement_cooldowns(active)
+        self._tick_granted_skills(active, events)
 
         if self._check_end(new_state, events):
             return new_state, events
@@ -184,7 +185,7 @@ class MatchEngine:
             )
             return
 
-        skill = self._lookup_skill(actor.id, action.skill_id)
+        skill = self._lookup_skill(actor, action.skill_id)
         if skill is None:
             events.append(
                 Event(
@@ -286,6 +287,12 @@ class MatchEngine:
                     )
                 )
 
+        # `copy` reads `target.last_skill_id` from the most recent non-self
+        # skill the target landed. We update it after the skill resolved so
+        # an action submitted *this* turn becomes copyable on the next.
+        if skill.target is not TargetKind.SELF:
+            actor.last_skill_id = skill.id
+
     def _tick_statuses(self, player: PlayerState, events: list[Event]) -> None:
         for character in player.characters:
             if not character.alive:
@@ -349,11 +356,21 @@ class MatchEngine:
             return [target] if target and target.alive else []
         return []
 
-    def _lookup_skill(self, character_id: str, skill_id: str) -> Skill | None:
+    def _lookup_skill(self, actor: CharacterState, skill_id: str) -> Skill | None:
         if skill_id == DODGE_SKILL_ID:
             return DODGE_SKILL
+        # Granted (copied) skills win over native ones when the IDs collide,
+        # so a copied skill keeps its borrowed semantics until it expires.
+        for granted in actor.granted_skills:
+            if granted.skill_id != skill_id:
+                continue
+            try:
+                source = self._characters.get(granted.source_character_id)
+            except KeyError:
+                return None
+            return next((s for s in source.skills if s.id == skill_id), None)
         try:
-            character = self._characters.get(character_id)
+            character = self._characters.get(actor.id)
         except KeyError:
             return None
         return next((s for s in character.skills if s.id == skill_id), None)
@@ -372,6 +389,39 @@ class MatchEngine:
                 character.cooldowns[skill_id] = max(0, character.cooldowns[skill_id] - 1)
                 if character.cooldowns[skill_id] == 0:
                     del character.cooldowns[skill_id]
+
+    def _tick_granted_skills(
+        self, player: PlayerState, events: list[Event]
+    ) -> None:
+        """Decrement copied-skill durations on the active side.
+
+        Granted skills age out at the *end* of the bearer's turn, alongside
+        their cooldowns — same cadence so a borrowed skill on a 2-turn
+        copy is usable on exactly one of the bearer's turns.
+        """
+        for character in player.characters:
+            if not character.granted_skills:
+                continue
+            survivors = []
+            for granted in character.granted_skills:
+                granted.turns_remaining -= 1
+                if granted.turns_remaining > 0:
+                    survivors.append(granted)
+                else:
+                    # Forget the cooldown entry too — the borrowed skill is
+                    # going away, no need to keep ticking its CD down.
+                    character.cooldowns.pop(granted.skill_id, None)
+                    events.append(
+                        Event(
+                            kind="skill_expired",
+                            details={
+                                "character": character.id,
+                                "skill": granted.skill_id,
+                                "from": granted.source_character_id,
+                            },
+                        )
+                    )
+            character.granted_skills = survivors
 
     def _roll_essences(self, player: PlayerState, count: int) -> None:
         options = [e.value for e in ROLLABLE_ESSENCES]

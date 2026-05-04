@@ -58,6 +58,7 @@ class EffectKind(str, Enum):
     STATUS = "status"
     ESSENCE_DRAIN = "essence_drain"
     REMOVE_AFFLICTIONS = "remove_afflictions"
+    COPY = "copy"
 
 
 class DamageClass(str, Enum):

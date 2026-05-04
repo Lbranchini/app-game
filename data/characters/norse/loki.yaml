@@ -20,17 +20,19 @@ skills:
       - { kind: damage, value: 15, damage_class: mental }
       - { kind: essence_drain, value: 1 }
 
-  - id: shapeshift
-    name: "Shapeshift"
+  - id: mirror_image
+    name: "Mirror Image"
     kind: instant
     cost: { mind: 1, generic: 1 }
     cooldown: 3
-    target: self
-    description: "Loki shifts into a stronger form, gaining 10 bonus damage and 10
-      damage reduction for 2 turns."
+    target: single_enemy
+    description: "Loki copies the target's last-used skill into his own kit
+      for the next 2 turns. Pays the cost of the copied skill from his own
+      essence pool when used."
     effects:
-      - { kind: damage_buff, value: 10, duration: 2 }
-      - { kind: damage_reduction, value: 10, duration: 2 }
+      # `copy` reads target.last_skill_id and grants the source a temporary
+      # entry in granted_skills for `duration` of the source's turns.
+      - { kind: copy, value: 0, duration: 2 }
 
   - id: asgard_deceit
     name: "Asgard's Deceit"

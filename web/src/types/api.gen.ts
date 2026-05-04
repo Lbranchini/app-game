@@ -524,6 +524,10 @@ export interface components {
             shield: number;
             /** Shield Source */
             shield_source?: string | null;
+            /** Granted Skills */
+            granted_skills?: components["schemas"]["GrantedSkill"][];
+            /** Last Skill Id */
+            last_skill_id?: string | null;
         };
         /**
          * DamageClass
@@ -616,7 +620,7 @@ export interface components {
          * EffectKind
          * @enum {string}
          */
-        EffectKind: "damage" | "heal" | "invulnerable" | "damage_reduction" | "damage_buff" | "destructible_shield" | "status" | "essence_drain" | "remove_afflictions";
+        EffectKind: "damage" | "heal" | "invulnerable" | "damage_reduction" | "damage_buff" | "destructible_shield" | "status" | "essence_drain" | "remove_afflictions" | "copy";
         /**
          * Essence
          * @description Energy resource for skills. Four colors plus a generic slot.
@@ -628,6 +632,23 @@ export interface components {
             draft: components["schemas"]["DraftState"];
             /** Match Id */
             match_id: string;
+        };
+        /**
+         * GrantedSkill
+         * @description A skill borrowed from another character via the `copy` effect.
+         *
+         *     The copying character treats it as their own — paying its cost from
+         *     their own essence pool, decrementing its cooldown alongside the rest,
+         *     looking it up under the original `skill_id`. `source_character_id`
+         *     points at the YAML the engine reads to find the actual `Skill` record.
+         */
+        GrantedSkill: {
+            /** Skill Id */
+            skill_id: string;
+            /** Source Character Id */
+            source_character_id: string;
+            /** Turns Remaining */
+            turns_remaining: number;
         };
         /** HTTPValidationError */
         HTTPValidationError: {

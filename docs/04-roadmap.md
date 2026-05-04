@@ -29,7 +29,7 @@
 - [x] CLI bot-vs-bot simulator.
 - [x] All 16 character YAMLs.
 - [x] Status effects: poison, bleed, regen, drained, stun, silence, disarm, marked, vulnerable, invulnerable, damage_reduction, damage_buff, destructible_shield, reflective, **stealth** (un-targetable, broken on attack — wired into Mulan + Sun Wukong).
-- [ ] `copy` (Loki's third archetype lever): blocked on plumbing for granted-skill tracking on `CharacterState` + `SkillValidator`. Effect handler intentionally omitted until that lands — see comment in `effect_handlers.py`.
+- [x] `copy` (Loki's third archetype lever): `CharacterState.granted_skills` + `last_skill_id`, `CopyHandler`, engine plumbing in `_lookup_skill` and `_tick_granted_skills`. Wired into Loki's `mirror_image` (replaces the old `shapeshift`).
 - [x] Test coverage ≥ 80%. (Currently **89%** — measured via `pytest --cov=agora`.)
 
 **Deliverable:** `pytest` green with ≥ 80% coverage. CLI runs an end-to-end match in < 1s. ✓

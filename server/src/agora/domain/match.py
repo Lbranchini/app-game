@@ -26,6 +26,22 @@ class ActiveStatus(BaseModel):
     source: str | None = None  # character id that applied it
 
 
+class GrantedSkill(BaseModel):
+    """A skill borrowed from another character via the `copy` effect.
+
+    The copying character treats it as their own — paying its cost from
+    their own essence pool, decrementing its cooldown alongside the rest,
+    looking it up under the original `skill_id`. `source_character_id`
+    points at the YAML the engine reads to find the actual `Skill` record.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    skill_id: str
+    source_character_id: str
+    turns_remaining: int
+
+
 class CharacterState(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -37,6 +53,12 @@ class CharacterState(BaseModel):
     statuses: list[ActiveStatus] = Field(default_factory=list)
     shield: int = 0
     shield_source: str | None = None  # character id that applied the active shield
+    # Skills this character has temporarily borrowed via `copy`. Each entry
+    # ticks down at the end of the bearer's turn and disappears at zero.
+    granted_skills: list[GrantedSkill] = Field(default_factory=list)
+    # Last skill the character successfully resolved (non-self only). Read
+    # by `CopyHandler` to decide what to clone off a target.
+    last_skill_id: str | None = None
 
     @property
     def alive(self) -> bool:

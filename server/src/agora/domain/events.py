@@ -21,6 +21,10 @@ EventKind = Literal[
     "invalid_action",
     # Emitted by `MatchRuntime` when a player's reconnect grace expires.
     "forfeit",
+    # Emitted by the engine when a character borrows / loses a copied skill
+    # via the `copy` effect. See `domain.match.GrantedSkill`.
+    "skill_granted",
+    "skill_expired",
 ]
 
 

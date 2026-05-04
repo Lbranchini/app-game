@@ -217,6 +217,62 @@ class RemoveAfflictionsHandler(EffectHandler):
         )
 
 
+class CopyHandler(EffectHandler):
+    """The `copy` modifier: the source borrows the target's last-used skill.
+
+    The borrowed skill goes onto `source.granted_skills` for `effect.duration`
+    of the source's turns. The engine's `_lookup_skill` checks that list
+    before falling back to the source's native kit, so the source can
+    submit `Action(skill_id=<copied id>)` on its next turn just like a
+    normal skill — paying the original cost from its own essence pool.
+
+    No-ops emit an `invalid_action` flavoured event so the player gets
+    feedback when a target hasn't acted yet.
+    """
+
+    def apply(self, effect: Effect, ctx: EffectContext) -> None:
+        target = ctx.target
+        source = ctx.source
+        if target.last_skill_id is None:
+            ctx.events.append(
+                Event(
+                    kind="invalid_action",
+                    details={
+                        "reason": "copy_no_target_skill",
+                        "character": source.id,
+                        "target": target.id,
+                    },
+                )
+            )
+            return
+        # Drop any existing copy of the same skill so re-casting copy on the
+        # same target just refreshes the duration instead of stacking.
+        source.granted_skills = [
+            g for g in source.granted_skills if g.skill_id != target.last_skill_id
+        ]
+        from agora.domain.match import GrantedSkill
+
+        duration = max(1, effect.duration)
+        source.granted_skills.append(
+            GrantedSkill(
+                skill_id=target.last_skill_id,
+                source_character_id=target.id,
+                turns_remaining=duration,
+            )
+        )
+        ctx.events.append(
+            Event(
+                kind="skill_granted",
+                details={
+                    "character": source.id,
+                    "skill": target.last_skill_id,
+                    "from": target.id,
+                    "duration": duration,
+                },
+            )
+        )
+
+
 EFFECT_HANDLERS: dict[EffectKind, EffectHandler] = {
     EffectKind.DAMAGE: DamageHandler(),
     EffectKind.HEAL: HealHandler(),
@@ -227,12 +283,5 @@ EFFECT_HANDLERS: dict[EffectKind, EffectHandler] = {
     EffectKind.STATUS: StatusHandler(),
     EffectKind.ESSENCE_DRAIN: EssenceDrainHandler(),
     EffectKind.REMOVE_AFFLICTIONS: RemoveAfflictionsHandler(),
+    EffectKind.COPY: CopyHandler(),
 }
-
-# `copy` (per docs/07-glossary.md) is intentionally not in this registry:
-# the design ("the user temporarily gains a copy of a skill from the target")
-# requires changes outside the effect-handler boundary — tracking each
-# character's last skill on CharacterState, exposing granted skills through
-# SkillValidator, and consuming them after a single use. Add an EffectKind +
-# handler only once that plumbing exists, otherwise YAML would validate but
-# the engine would silently ignore the effect.
