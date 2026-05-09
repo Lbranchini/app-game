@@ -135,4 +135,14 @@ export const ptBR: Record<string, string> = {
   "skill.wraps.name": "Bandagens Sufocantes",
   "skill.scales.name": "Balança de Anúbis",
   "skill.gateway.name": "Portal do Pós-Vida",
+
+  // ── error codes (HTTP) ───────────────────────────────────────────────
+  "error.match.bad_team_size": "Cada time precisa ter exatamente 3 personagens.",
+  "error.match.unknown_id": "ID de personagem ou arena desconhecido.",
+  "error.match.not_found": "Partida não encontrada.",
+  "error.character.not_found": "Personagem não encontrado.",
+  "error.arena.not_found": "Arena não encontrada.",
+  "error.draft.not_found": "Draft não encontrado.",
+  "error.draft.error": "Não consegui processar essa ação no draft.",
+  "error.draft.bad_phase": "O draft ainda não está pronto pra isso.",
 };

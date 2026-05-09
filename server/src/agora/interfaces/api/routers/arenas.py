@@ -4,11 +4,12 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, status
 
 from agora.application.ports import ArenaRepository
 from agora.domain.arena import Arena
 from agora.interfaces.api.dependencies import get_arena_repository
+from agora.interfaces.api.errors import raise_api_error
 
 router = APIRouter(prefix="/arenas", tags=["arenas"])
 
@@ -28,4 +29,10 @@ def get_arena(
     try:
         return repo.get(arena_id)
     except KeyError as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="arena not found") from exc
+        raise_api_error(
+            status.HTTP_404_NOT_FOUND,
+            "arena.not_found",
+            "arena not found",
+            cause=exc,
+            arena_id=arena_id,
+        )

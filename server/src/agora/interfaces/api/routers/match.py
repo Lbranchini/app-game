@@ -41,6 +41,7 @@ from agora.interfaces.api.dependencies import (
     get_match_history_repository,
     get_player_repository,
 )
+from agora.interfaces.api.errors import raise_api_error
 from agora.interfaces.api.match_runtime import MatchRuntime
 from agora.interfaces.api.rate_limit import limiter
 from agora.interfaces.api.security import authenticate_ws_token
@@ -94,7 +95,13 @@ def dev_start(
 ) -> StartedMatch:
     """Bypass draft and create a match directly. Useful for frontend dev."""
     if len(body.team_a) != 3 or len(body.team_b) != 3:
-        raise HTTPException(status_code=400, detail="Each team must have 3 characters")
+        raise_api_error(
+            400,
+            "match.bad_team_size",
+            "Each team must have 3 characters",
+            team_a=len(body.team_a),
+            team_b=len(body.team_b),
+        )
 
     fake_draft = DraftState(
         draft_id="dev",
@@ -110,7 +117,7 @@ def dev_start(
             fake_draft, match_id=match_id, seed=body.seed
         )
     except KeyError as exc:
-        raise HTTPException(status_code=400, detail=f"Unknown id: {exc}") from exc
+        raise_api_error(400, "match.unknown_id", f"Unknown id: {exc}", cause=exc, id=str(exc))
     return StartedMatch(match_id=match_id, state=state)
 
 
@@ -132,7 +139,13 @@ def get_match(
     try:
         return runtime.get(match_id)
     except KeyError as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="match not found") from exc
+        raise_api_error(
+            status.HTTP_404_NOT_FOUND,
+            "match.not_found",
+            "match not found",
+            cause=exc,
+            match_id=match_id,
+        )
 
 
 @router.websocket("/ws/{match_id}")

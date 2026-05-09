@@ -29,6 +29,7 @@ from agora.application.ports import (
 from agora.application.use_cases.draft import DraftError
 from agora.domain.draft import DraftPhase, DraftState
 from agora.domain.enums import Side
+from agora.interfaces.api.errors import raise_api_error
 from agora.interfaces.api.dependencies import (
     get_arena_repository,
     get_character_repository,
@@ -99,7 +100,7 @@ async def start_draft(
             body.side_a_player_id, body.side_b_player_id, body.arena_id
         )
     except DraftError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+        raise_api_error(400, "draft.error", str(exc), cause=exc)
     await _broadcast(runtime, draft)
     return draft
 
@@ -112,7 +113,7 @@ def get_draft(
     try:
         return runtime.draft_service.get(draft_id)
     except KeyError as exc:
-        raise HTTPException(status_code=404, detail="draft not found") from exc
+        raise_api_error(404, "draft.not_found", "draft not found", cause=exc, draft_id=draft_id)
 
 
 @router.post("/{draft_id}/ban", response_model=DraftState)
@@ -124,9 +125,9 @@ async def submit_ban(
     try:
         draft = runtime.draft_service.submit_ban(draft_id, body.side, body.character_id)
     except DraftError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+        raise_api_error(400, "draft.error", str(exc), cause=exc)
     except KeyError as exc:
-        raise HTTPException(status_code=404, detail="draft not found") from exc
+        raise_api_error(404, "draft.not_found", "draft not found", cause=exc, draft_id=draft_id)
     await _broadcast(runtime, draft)
     return draft
 
@@ -140,9 +141,9 @@ async def submit_pick(
     try:
         draft = runtime.draft_service.submit_pick(draft_id, body.side, body.character_id)
     except DraftError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+        raise_api_error(400, "draft.error", str(exc), cause=exc)
     except KeyError as exc:
-        raise HTTPException(status_code=404, detail="draft not found") from exc
+        raise_api_error(404, "draft.not_found", "draft not found", cause=exc, draft_id=draft_id)
     await _broadcast(runtime, draft)
     return draft
 
@@ -157,12 +158,12 @@ async def finalize_draft(
     try:
         draft = runtime.draft_service.finalize(draft_id)
     except DraftError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+        raise_api_error(400, "draft.error", str(exc), cause=exc)
     except KeyError as exc:
-        raise HTTPException(status_code=404, detail="draft not found") from exc
+        raise_api_error(404, "draft.not_found", "draft not found", cause=exc, draft_id=draft_id)
 
     if draft.phase is not DraftPhase.DONE:
-        raise HTTPException(status_code=400, detail=f"draft phase is {draft.phase}")
+        raise_api_error(400, "draft.bad_phase", f"draft phase is {draft.phase}", phase=str(draft.phase))
 
     match_id = str(uuid.uuid4())
     runtime.create_match_from_draft(draft, match_id=match_id, seed=0)
@@ -178,7 +179,7 @@ async def cancel_draft(
     try:
         draft = runtime.draft_service.cancel(draft_id)
     except KeyError as exc:
-        raise HTTPException(status_code=404, detail="draft not found") from exc
+        raise_api_error(404, "draft.not_found", "draft not found", cause=exc, draft_id=draft_id)
     await _broadcast(runtime, draft)
     return draft
 

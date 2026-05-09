@@ -142,4 +142,14 @@ export const en: Record<string, string> = {
   "skill.wraps.name": "Choking Wraps",
   "skill.scales.name": "Scales of Anubis",
   "skill.gateway.name": "Gateway to the Afterlife",
+
+  // ── error codes (HTTP) ───────────────────────────────────────────────
+  "error.match.bad_team_size": "Each team must have exactly 3 characters.",
+  "error.match.unknown_id": "Unknown character or arena id.",
+  "error.match.not_found": "Match not found.",
+  "error.character.not_found": "Character not found.",
+  "error.arena.not_found": "Arena not found.",
+  "error.draft.not_found": "Draft not found.",
+  "error.draft.error": "Couldn't process that draft action.",
+  "error.draft.bad_phase": "The draft isn't ready for that yet.",
 };

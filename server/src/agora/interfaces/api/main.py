@@ -74,12 +74,24 @@ def create_app() -> FastAPI:
     # `ErrorResponse` shape so the client only learns one decoder.
     @app.exception_handler(HTTPException)
     async def _http_exception_handler(_: Request, exc: HTTPException) -> JSONResponse:
-        return JSONResponse(
-            status_code=exc.status_code,
-            content=ErrorResponse(
+        # Routes that raise via `raise_api_error(...)` ship a structured
+        # detail dict with a stable `code`; preserve it through the
+        # envelope. Plain string `detail` keeps the legacy `http_<status>`
+        # auto-code so clients without a localized lookup don't regress.
+        if isinstance(exc.detail, dict) and "code" in exc.detail and "message" in exc.detail:
+            payload = ErrorResponse(
+                code=str(exc.detail["code"]),
+                message=str(exc.detail["message"]),
+                details=exc.detail.get("vars") if isinstance(exc.detail.get("vars"), dict) else None,
+            )
+        else:
+            payload = ErrorResponse(
                 code=f"http_{exc.status_code}",
                 message=str(exc.detail) if exc.detail is not None else "",
-            ).model_dump(),
+            )
+        return JSONResponse(
+            status_code=exc.status_code,
+            content=payload.model_dump(),
             headers=exc.headers,
         )
 

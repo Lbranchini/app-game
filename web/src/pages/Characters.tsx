@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 
 import { api, type UnlockRulePayload } from "@/api/client";
+import { formatApiError } from "@/api/format_error";
 import { useT, type TranslateFn } from "@/i18n";
 import type { Character } from "@/types/api";
 
@@ -21,7 +22,7 @@ export function CharactersPage() {
   if (characters.error) {
     return (
       <p className="p-8 text-red-400">
-        {t("characters.failed", undefined, { error: String(characters.error) })}
+        {t("characters.failed", undefined, { error: formatApiError(characters.error, t) })}
       </p>
     );
   }
