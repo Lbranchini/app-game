@@ -108,6 +108,11 @@ export const ptBR: Record<string, string> = {
   "error.boundaryBody":
     "A página encontrou um erro inesperado. Já registramos o stack trace; tente recarregar ou voltar para Personagens.",
   "error.backToCharacters": "Voltar para Personagens",
+  // ── error codes (mensagens emitidas pelo servidor) ───────────────────
+  "error.match.unknown_frame": "Não consegui entender essa mensagem — tente de novo.",
+  "error.match.bad_action": "Essa ação parece inválida.",
+  "error.match.match_over": "A partida já foi encerrada.",
+  "error.match.not_your_turn": "Calma — é o turno do oponente.",
 
   // ── characters page ──────────────────────────────────────────────────
   "characters.title": "Roster",

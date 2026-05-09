@@ -115,6 +115,11 @@ export const en: Record<string, string> = {
   "error.boundaryBody":
     "The page hit an unexpected error. We've logged the trace; you can try a fresh load or head back to the Characters page.",
   "error.backToCharacters": "Back to Characters",
+  // ── error codes (server-emitted, looked up via `error.<code>`) ───────
+  "error.match.unknown_frame": "Couldn't parse that message — please retry.",
+  "error.match.bad_action": "That action looks malformed.",
+  "error.match.match_over": "The match is already finished.",
+  "error.match.not_your_turn": "Hold on — it's the opponent's turn.",
 
   // ── characters page ──────────────────────────────────────────────────
   "characters.title": "Roster",

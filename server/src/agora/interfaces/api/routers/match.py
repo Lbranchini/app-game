@@ -195,12 +195,28 @@ async def match_ws(
         while True:
             frame = await websocket.receive_json()
             if frame.get("type") != "actions":
-                await websocket.send_json({"type": "error", "detail": "unknown frame type"})
+                # Each WS error frame carries a stable `code` (machine
+                # string the client can localize via `t("error.<code>")`)
+                # plus an English `detail` fallback for clients/tests
+                # that don't speak the i18n contract.
+                await websocket.send_json(
+                    {
+                        "type": "error",
+                        "code": "match.unknown_frame",
+                        "detail": "unknown frame type",
+                    }
+                )
                 continue
             try:
                 actions = [Action.model_validate(a) for a in frame.get("actions", [])]
             except Exception as exc:
-                await websocket.send_json({"type": "error", "detail": f"bad action: {exc}"})
+                await websocket.send_json(
+                    {
+                        "type": "error",
+                        "code": "match.bad_action",
+                        "detail": f"bad action: {exc}",
+                    }
+                )
                 continue
 
             # Refuse out-of-turn submissions in real matches. We re-read the
@@ -210,12 +226,20 @@ async def match_ws(
                 current_state = runtime.get(match_id)
                 if current_state.finished:
                     await websocket.send_json(
-                        {"type": "error", "detail": "match is over"}
+                        {
+                            "type": "error",
+                            "code": "match.match_over",
+                            "detail": "match is over",
+                        }
                     )
                     continue
                 if current_state.current_side is not acting_side:
                     await websocket.send_json(
-                        {"type": "error", "detail": "not your turn"}
+                        {
+                            "type": "error",
+                            "code": "match.not_your_turn",
+                            "detail": "not your turn",
+                        }
                     )
                     continue
 

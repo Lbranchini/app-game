@@ -115,11 +115,27 @@ def test_off_turn_submission_is_rejected(client: TestClient) -> None:
         )
         err = bob.receive_json()
         assert err["type"] == "error"
+        # Stable machine code so the client can localize via i18n; English
+        # detail kept as the fallback for older clients.
+        assert err["code"] == "match.not_your_turn"
         assert "not your turn" in err["detail"]
 
     # No turn was resolved — counters and state untouched.
     assert rt.get("m1").turn == turns_before
     assert rt.get("m1").a.characters[0].hp == rt.get("m1").a.characters[0].hp_max
+
+
+def test_unknown_frame_returns_stable_error_code(client: TestClient) -> None:
+    """Any non-`actions` frame should round-trip with the documented code."""
+    _seed_match(client)
+    alice_token = issue_access_token(AuthenticatedUser(sub="google:alice", email=None, name=None))
+
+    with client.websocket_connect(f"/match/ws/m1?token={alice_token}") as alice:
+        alice.receive_json()
+        alice.send_json({"type": "ping"})
+        err = alice.receive_json()
+        assert err["type"] == "error"
+        assert err["code"] == "match.unknown_frame"
 
 
 def test_alternating_submissions_resolve_normally(client: TestClient) -> None:

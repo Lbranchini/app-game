@@ -378,7 +378,12 @@ export function BattlePage() {
           setOpponentOffline(null);
         }
       } else if (frame.type === "error") {
-        setError(frame.detail);
+        // Prefer the localized lookup keyed by the server's stable `code`;
+        // fall back to the English `detail` for older frames (or codes
+        // that haven't made it into en.ts/pt_BR.ts yet).
+        const code = typeof frame.code === "string" ? frame.code : null;
+        const detail = typeof frame.detail === "string" ? frame.detail : "Error";
+        setError(code ? t(`error.${code}`, detail) : detail);
       }
     };
     ws.onerror = () => {

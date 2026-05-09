@@ -33,6 +33,24 @@ describe("translate()", () => {
       translate("en", "characters.unlockedCount", undefined, { unlocked: 3, total: 16 }),
     ).toBe("3/16 unlocked");
   });
+
+  it("looks up server-emitted error codes in both locales", () => {
+    expect(translate("en", "error.match.not_your_turn")).toBe(
+      "Hold on — it's the opponent's turn.",
+    );
+    expect(translate("pt-BR", "error.match.not_your_turn")).toBe(
+      "Calma — é o turno do oponente.",
+    );
+  });
+
+  it("falls back to the server English `detail` when an error code is unknown", () => {
+    // The Battle WS handler does `t(`error.${code}`, detail)` — the
+    // util's fallback path is what carries the day for codes we
+    // haven't translated yet.
+    expect(
+      translate("pt-BR", "error.match.never_seen_this", "server-side detail"),
+    ).toBe("server-side detail");
+  });
 });
 
 describe("useI18nStore", () => {
