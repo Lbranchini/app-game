@@ -1,5 +1,7 @@
 import { Component, type ErrorInfo, type ReactNode } from "react";
 
+import { translate, useI18nStore } from "@/i18n";
+
 interface Props {
   children: ReactNode;
 }
@@ -33,14 +35,15 @@ export class ErrorBoundary extends Component<Props, State> {
     if (this.state.error === null) {
       return this.props.children;
     }
+    // The boundary lives outside the normal render tree, so we can't use
+    // the `useT()` hook here — pull the locale from the store directly.
+    const locale = useI18nStore.getState().locale;
+    const t = (key: string, fallback?: string) => translate(locale, key, fallback);
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-950 p-6">
         <div className="max-w-lg rounded-xl bg-slate-900 p-6 ring-1 ring-slate-800">
-          <h1 className="text-2xl font-bold text-rose-300">Something broke</h1>
-          <p className="mt-2 text-sm text-slate-400">
-            The page hit an unexpected error. We've logged the trace; you can
-            try a fresh load or head back to the Characters page.
-          </p>
+          <h1 className="text-2xl font-bold text-rose-300">{t("error.somethingBroke")}</h1>
+          <p className="mt-2 text-sm text-slate-400">{t("error.boundaryBody")}</p>
           <pre className="mt-4 overflow-x-auto rounded bg-slate-950 p-3 text-xs text-slate-400">
             {this.state.error.message}
           </pre>
@@ -50,13 +53,13 @@ export class ErrorBoundary extends Component<Props, State> {
               onClick={() => window.location.reload()}
               className="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold hover:bg-blue-500"
             >
-              Reload
+              {t("common.reload")}
             </button>
             <a
               href="/characters"
               className="rounded-md bg-slate-800 px-4 py-2 text-sm ring-1 ring-slate-700 hover:bg-slate-700"
             >
-              Back to Characters
+              {t("error.backToCharacters")}
             </a>
           </div>
         </div>

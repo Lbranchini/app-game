@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
 
 import { api, auth } from "@/api/client";
+import { useT } from "@/i18n";
 
 type Status = "idle" | "queued" | "found" | "error";
 
@@ -13,6 +14,7 @@ const QUEUE_STICKY_MS = 10 * 60_000;
 const QUEUE_STORAGE_KEY = "agora.matchmaking.queuedAt";
 
 export function MatchmakingPage() {
+  const t = useT();
   const navigate = useNavigate();
   const [status, setStatus] = useState<Status>("idle");
   const [error, setError] = useState<string | null>(null);
@@ -33,7 +35,7 @@ export function MatchmakingPage() {
   const join = () => {
     const token = auth.getToken();
     if (!token) {
-      setError("Not authenticated.");
+      setError(t("matchmaking.notAuth"));
       return;
     }
     setError(null);
@@ -61,7 +63,7 @@ export function MatchmakingPage() {
     };
     ws.onerror = () => {
       setStatus("error");
-      setError("WebSocket error.");
+      setError(t("matchmaking.wsError"));
     };
     wsRef.current = ws;
   };
@@ -98,11 +100,8 @@ export function MatchmakingPage() {
   return (
     <div className="mx-auto max-w-2xl p-8">
       <header className="mb-6">
-        <h2 className="text-2xl font-bold">Ranked queue</h2>
-        <p className="mt-1 text-sm text-slate-400">
-          Join the queue. The server pairs you with the next player and routes
-          you both into a draft.
-        </p>
+        <h2 className="text-2xl font-bold">{t("matchmaking.title")}</h2>
+        <p className="mt-1 text-sm text-slate-400">{t("matchmaking.tagline")}</p>
       </header>
 
       <div className="rounded-2xl bg-slate-900/70 p-6 ring-1 ring-slate-800">
@@ -110,7 +109,7 @@ export function MatchmakingPage() {
         {me.data?.player && (
           <div className="mb-5 flex items-center justify-between rounded-lg bg-slate-950/60 px-4 py-3 ring-1 ring-slate-800">
             <div>
-              <div className="text-xs uppercase tracking-wider text-slate-500">You</div>
+              <div className="text-xs uppercase tracking-wider text-slate-500">{t("common.you")}</div>
               <div className="text-sm font-semibold text-slate-100">
                 {me.data.player.name ?? me.data.sub}
               </div>
@@ -126,15 +125,13 @@ export function MatchmakingPage() {
 
         {status === "idle" && (
           <div className="text-center">
-            <p className="mb-4 text-sm text-slate-400">
-              Click below to start searching for an opponent.
-            </p>
+            <p className="mb-4 text-sm text-slate-400">{t("matchmaking.tip")}</p>
             <button
               type="button"
               onClick={join}
               className="rounded-md bg-emerald-600 px-6 py-2.5 font-semibold hover:bg-emerald-500"
             >
-              Join queue
+              {t("matchmaking.joinQueue")}
             </button>
           </div>
         )}
@@ -142,19 +139,17 @@ export function MatchmakingPage() {
         {status === "queued" && (
           <div className="text-center">
             <SearchingRipple />
-            <p className="mt-2 text-amber-300">Searching for opponent…</p>
+            <p className="mt-2 text-amber-300">{t("matchmaking.searching")}</p>
             <p className="mt-1 font-mono text-3xl font-bold tabular-nums text-slate-100">
               {formatElapsed(elapsedSec)}
             </p>
-            <p className="mt-1 text-xs text-slate-500">
-              Tip: matchmaking widens the ELO band over time.
-            </p>
+            <p className="mt-1 text-xs text-slate-500">{t("matchmaking.tipBand")}</p>
             <button
               type="button"
               onClick={leave}
               className="mt-5 rounded-md bg-slate-700 px-5 py-2 text-sm hover:bg-slate-600"
             >
-              Leave queue
+              {t("matchmaking.leaveQueue")}
             </button>
           </div>
         )}
@@ -166,10 +161,8 @@ export function MatchmakingPage() {
             transition={{ duration: 0.25 }}
             className="rounded-lg bg-emerald-500/10 px-4 py-6 text-center ring-1 ring-emerald-500/40"
           >
-            <p className="text-lg font-semibold text-emerald-300">Match found</p>
-            <p className="mt-1 text-xs text-slate-400">
-              Routing you to the draft…
-            </p>
+            <p className="text-lg font-semibold text-emerald-300">{t("matchmaking.matchFound")}</p>
+            <p className="mt-1 text-xs text-slate-400">{t("matchmaking.routing")}</p>
           </motion.div>
         )}
 

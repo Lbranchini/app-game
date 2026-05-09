@@ -10,6 +10,7 @@ import {
   subtractPayment,
   type QueuedAction,
 } from "@/api/battle";
+import { useT } from "@/i18n";
 import type { Character, Essence, Skill } from "@/types/api";
 
 // ============================================================================
@@ -120,6 +121,7 @@ function playBeep(kind: "damage" | "heal"): void {
 // ============================================================================
 
 export function BattlePage() {
+  const t = useT();
   const params = useParams<{ matchId?: string }>();
   const [matchId, setMatchId] = useState<string | null>(params.matchId ?? null);
   const [state, setState] = useState<MatchState | null>(null);
@@ -403,7 +405,7 @@ export function BattlePage() {
     if (failedExisting) {
       return (
         <div className="mx-auto mt-16 max-w-md rounded-xl bg-slate-900 p-6 ring-1 ring-rose-500/40">
-          <h2 className="text-xl font-bold text-rose-300">Couldn't load match</h2>
+          <h2 className="text-xl font-bold text-rose-300">{t("battle.couldntLoad")}</h2>
           <p className="mt-2 break-words text-sm text-slate-400">{error}</p>
           <div className="mt-4 flex gap-3">
             <button
@@ -414,13 +416,13 @@ export function BattlePage() {
               }}
               className="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold hover:bg-blue-500"
             >
-              Retry
+              {t("common.retry")}
             </button>
             <a
               href="/matchmaking"
               className="rounded-md bg-slate-800 px-4 py-2 text-sm ring-1 ring-slate-700 hover:bg-slate-700"
             >
-              Back to matchmaking
+              {t("battle.backToMatchmaking")}
             </a>
           </div>
         </div>
@@ -428,16 +430,19 @@ export function BattlePage() {
     }
     return (
       <div className="p-8">
-        <h2 className="mb-4 text-2xl font-bold">Battle (demo)</h2>
+        <h2 className="mb-4 text-2xl font-bold">{t("battle.demoTitle")}</h2>
         <p className="mb-4 text-sm text-slate-400">
-          Spawns a match between {DEMO_TEAM_A.join("/")} and {DEMO_TEAM_B.join("/")} on Olympus.
+          {t("battle.demoTagline", undefined, {
+            teamA: DEMO_TEAM_A.join("/"),
+            teamB: DEMO_TEAM_B.join("/"),
+          })}
         </p>
         <button
           type="button"
           onClick={startMatch}
           className="rounded-md bg-emerald-600 px-4 py-2 font-medium hover:bg-emerald-500"
         >
-          Start match
+          {t("battle.startMatch")}
         </button>
         {error && <p className="mt-4 text-sm text-red-400">{error}</p>}
       </div>
@@ -554,8 +559,19 @@ export function BattlePage() {
         {offlineBanner && (
           <div className="mx-4 mt-4 flex items-center rounded-lg bg-amber-500/10 px-4 py-2 text-xs text-amber-200 ring-1 ring-amber-500/40">
             <span>
-              Opponent disconnected — auto-forfeit in{" "}
-              <span className="font-mono font-bold text-amber-100">{offlineSecondsLeft}s</span>
+              {t("battle.opponentDisconnected", undefined, {
+                seconds: offlineSecondsLeft,
+              })
+                .split(/(\d+s)/)
+                .map((part, i) =>
+                  /^\d+s$/.test(part) ? (
+                    <span key={i} className="font-mono font-bold text-amber-100">
+                      {part}
+                    </span>
+                  ) : (
+                    <span key={i}>{part}</span>
+                  ),
+                )}
             </span>
           </div>
         )}
@@ -576,7 +592,9 @@ export function BattlePage() {
             <div className="flex items-center gap-3">
               <div className="text-right text-sm">
                 <div className="text-xs uppercase tracking-wider text-slate-500">
-                  {isMyTurn ? `Your turn · ${secondsLeft}s` : `Opponent's turn · ${secondsLeft}s`}
+                  {isMyTurn
+                    ? t("battle.yourTurn", undefined, { seconds: secondsLeft })
+                    : t("battle.opponentTurn", undefined, { seconds: secondsLeft })}
                 </div>
                 <div
                   className={
@@ -773,7 +791,7 @@ export function BattlePage() {
                     disabled={!isMyTurn}
                     className="rounded-md bg-blue-600 px-3 py-2 text-xs font-medium hover:bg-blue-500 w-full disabled:cursor-not-allowed disabled:bg-slate-700 disabled:text-slate-500"
                   >
-                    {isMyTurn ? "Confirm turn" : "Opponent's turn"}
+                    {isMyTurn ? t("battle.confirmTurn") : t("battle.opponentTurnLabel")}
                   </button>
                   <button
                     type="button"
@@ -781,7 +799,7 @@ export function BattlePage() {
                     disabled={!isMyTurn}
                     className="rounded-md bg-slate-700 px-3 py-2 text-xs font-medium hover:bg-slate-600 w-full disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    Clear
+                    {t("battle.clear")}
                   </button>
                 </div>
               </div>
@@ -1250,6 +1268,7 @@ function FloatingNumbers({ items }: { items: FloatingNumber[] }) {
 }
 
 function BattleLoadingSkeleton({ matchId }: { matchId: string }) {
+  const t = useT();
   return (
     <div className="mx-auto flex min-h-screen max-w-5xl flex-col gap-4 px-4 py-6 animate-pulse">
       <div className="rounded-xl bg-slate-900/80 px-5 py-3 ring-1 ring-slate-800">
@@ -1280,7 +1299,9 @@ function BattleLoadingSkeleton({ matchId }: { matchId: string }) {
           ))}
         </div>
       </div>
-      <p className="text-center text-xs text-slate-500">Loading match {matchId.slice(0, 8)}…</p>
+      <p className="text-center text-xs text-slate-500">
+        {t("battle.loadingMatch", undefined, { id: matchId.slice(0, 8) })}
+      </p>
     </div>
   );
 }
@@ -1298,35 +1319,46 @@ function ReconnectOverlay({
   secondsUntilNext: number;
   onRetry: () => void;
 }) {
+  const t = useT();
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-950/85 backdrop-blur-sm">
       <div className="max-w-md rounded-xl bg-slate-900 px-6 py-5 text-center ring-1 ring-slate-800 shadow-xl">
         {gaveUp ? (
           <>
             <div className="mb-2 text-2xl">⚠</div>
-            <div className="text-lg font-bold text-rose-300">Connection lost</div>
-            <p className="mt-2 text-sm text-slate-400">
-              We couldn't restore the link to the server. The match may have
-              been forfeited.
-            </p>
+            <div className="text-lg font-bold text-rose-300">{t("reconnect.connectionLost")}</div>
+            <p className="mt-2 text-sm text-slate-400">{t("reconnect.connectionLostBody")}</p>
             <button
               type="button"
               onClick={onRetry}
               className="mt-4 rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold hover:bg-blue-500"
             >
-              Try again
+              {t("common.tryAgain")}
             </button>
           </>
         ) : (
           <>
             <div className="mx-auto mb-3 h-8 w-8 animate-spin rounded-full border-2 border-slate-700 border-t-amber-400" />
-            <div className="text-lg font-bold text-amber-200">Reconnecting…</div>
+            <div className="text-lg font-bold text-amber-200">{t("reconnect.reconnecting")}</div>
             <p className="mt-2 text-xs text-slate-400">
-              attempt {Math.max(1, attempt)} / {maxAttempts}
+              {t("reconnect.attempt", undefined, {
+                current: Math.max(1, attempt),
+                max: maxAttempts,
+              })}
               {secondsUntilNext > 0 && (
                 <>
-                  {" · next in "}
-                  <span className="font-mono text-slate-200">{secondsUntilNext}s</span>
+                  {" · "}
+                  {t("reconnect.nextIn", undefined, { seconds: secondsUntilNext })
+                    .split(/(\d+s)/)
+                    .map((part, i) =>
+                      /^\d+s$/.test(part) ? (
+                        <span key={i} className="font-mono text-slate-200">
+                          {part}
+                        </span>
+                      ) : (
+                        <span key={i}>{part}</span>
+                      ),
+                    )}
                 </>
               )}
             </p>
@@ -1335,7 +1367,7 @@ function ReconnectOverlay({
               onClick={onRetry}
               className="mt-4 rounded-md bg-slate-800 px-3 py-1.5 text-xs text-slate-300 ring-1 ring-slate-700 hover:bg-slate-700"
             >
-              Retry now
+              {t("reconnect.retryNow")}
             </button>
           </>
         )}
