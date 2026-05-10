@@ -681,7 +681,9 @@ export function BattlePage() {
                 >
                   <div className="flex items-start justify-between">
                     <div>
-                      <div className="text-base font-bold text-amber-200">{selectedSkill.skill.name}</div>
+                      <div className="text-base font-bold text-amber-200">
+                        {t(`skill.${selectedSkill.skill.id}.name`, selectedSkill.skill.name)}
+                      </div>
                       <div className="text-[10px] text-slate-400">{selectedSkill.character_name}</div>
                     </div>
                     <button
@@ -766,7 +768,9 @@ export function BattlePage() {
             {!state.finished && (
               <div className="bg-slate-900/80 rounded-lg ring-1 ring-slate-800 p-4 flex-1 flex flex-col">
                 <div className="text-xs uppercase tracking-wider text-slate-500 mb-3 font-semibold">
-                  {queue.length === 0 ? "No actions" : `${queue.length}/3 queued`}
+                  {queue.length === 0
+                    ? t("battle.noActionsQueued")
+                    : t("battle.actionsQueued", undefined, { count: queue.length })}
                 </div>
                 <div className="flex-1 overflow-y-auto space-y-2 mb-3">
                   {queue.map((action, i) => {
@@ -776,7 +780,9 @@ export function BattlePage() {
                       <div key={i} className="flex items-center justify-between gap-2 rounded-md bg-slate-800 px-2 py-1.5 text-xs ring-1 ring-slate-700">
                         <div className="min-w-0 flex-1">
                           <div className="font-semibold truncate text-slate-100">{def?.name}</div>
-                          <div className="text-slate-400 text-[10px] truncate">{skill?.name}</div>
+                          <div className="text-slate-400 text-[10px] truncate">
+                            {skill ? t(`skill.${skill.id}.name`, skill.name) : action.skill_id}
+                          </div>
                         </div>
                         <button
                           type="button"
@@ -1098,6 +1104,7 @@ function CharacterPortrait({
 }
 
 function SkillTooltip({ skill, iconUrl, cd }: { skill: Skill; iconUrl: string; cd: number }) {
+  const t = useT();
   return (
     <div className="pointer-events-none absolute z-50 bottom-[calc(100%+6px)] left-1/2 -translate-x-1/2 w-52 rounded-lg bg-slate-950 ring-1 ring-slate-700 shadow-2xl p-2 flex flex-col gap-2">
       <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-950" />
@@ -1106,7 +1113,7 @@ function SkillTooltip({ skill, iconUrl, cd }: { skill: Skill; iconUrl: string; c
           <img src={iconUrl} alt="" className="h-full w-full object-cover" onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
         </div>
         <div className="min-w-0">
-          <div className="text-xs font-bold text-slate-100 leading-tight">{skill.name}</div>
+          <div className="text-xs font-bold text-slate-100 leading-tight">{t(`skill.${skill.id}.name`, skill.name)}</div>
           <div className="mt-0.5 flex items-center gap-1 flex-wrap">
             <CostPips cost={skill.cost} size="small" />
           </div>

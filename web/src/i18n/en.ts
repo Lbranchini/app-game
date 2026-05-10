@@ -135,16 +135,64 @@ export const en: Record<string, string> = {
   "characters.openSubtitle": "HP {{hp}} • {{archetype}}",
   "characters.noUnlockRule": "No unlock rule registered for this character yet.",
 
-  // ── skills (starter trio only — rest fall back to YAML English) ──────
+  // ── skills (every YAML skill, by id) ─────────────────────────────────
+  // Greek
   "skill.spear.name": "Deadly Spear",
-  "skill.charge.name": "Heroic Charge",
-  "skill.divine_armor.name": "Divine Armor",
-  "skill.aegis.name": "Aegis of Athena",
-  "skill.smite.name": "Owl's Smite",
-  "skill.wisdom.name": "Wisdom of the City",
+  "skill.charge.name": "Myrmidon Charge",
+  "skill.wrath.name": "Wrath of Peleus",
+  "skill.spear_of_wisdom.name": "Spear of Wisdom",
+  "skill.counsel.name": "Counsel",
+  "skill.aegis.name": "Aegis",
+  "skill.unsettling_gaze.name": "Unsettling Gaze",
+  "skill.serpent_hiss.name": "Serpent Hiss",
+  "skill.petrification.name": "Petrification",
+  // Norse
+  "skill.mjolnir.name": "Mjolnir",
+  "skill.side_thunder.name": "Side Thunder",
+  "skill.ragnarok.name": "Ragnarok",
+  "skill.golden_lie.name": "Golden Lie",
+  "skill.mirror_image.name": "Mirror Image",
+  "skill.asgard_deceit.name": "Asgard's Deceit",
+  // Egyptian
   "skill.wraps.name": "Choking Wraps",
-  "skill.scales.name": "Scales of Anubis",
-  "skill.gateway.name": "Gateway to the Afterlife",
+  "skill.sentence.name": "Sentence",
+  "skill.heart_burden.name": "Heart's Burden",
+  "skill.mothers_hands.name": "Mother's Hands",
+  "skill.protective_wings.name": "Protective Wings",
+  "skill.resurgence.name": "Resurgence",
+  "skill.royal_decree.name": "Royal Decree",
+  "skill.charm.name": "Charm",
+  "skill.queen_of_the_nile.name": "Queen of the Nile",
+  // Chinese
+  "skill.crescent_staff.name": "Crescent Staff",
+  "skill.hair_clones.name": "Hair Clones",
+  "skill.monkey_king.name": "Monkey King",
+  "skill.hidden_sword.name": "Hidden Sword",
+  "skill.disguise.name": "Disguise",
+  "skill.family_honor.name": "Family Honor",
+  // Japanese
+  "skill.solar_mirror.name": "Solar Mirror",
+  "skill.eternal_morning.name": "Eternal Morning",
+  "skill.sacred_cave.name": "Sacred Cave",
+  // Aztec
+  "skill.whispered_wind.name": "Whispered Wind",
+  "skill.sacred_plume.name": "Sacred Plume",
+  "skill.sacred_breath.name": "Sacred Breath",
+  // African (Akan)
+  "skill.spider_thread.name": "Spider Thread",
+  "skill.trap.name": "Trap",
+  "skill.web_of_lies.name": "Web of Lies",
+  // Mesopotamian
+  "skill.spear_of_dawn.name": "Spear of Dawn",
+  "skill.descent_underworld.name": "Descent to the Underworld",
+  "skill.queen_returns.name": "The Queen Returns",
+  // Historical
+  "skill.sacred_sword.name": "Sacred Sword",
+  "skill.standard_raised.name": "Standard Raised",
+  "skill.vow_of_orleans.name": "Vow of Orléans",
+  "skill.excalibur.name": "Excalibur",
+  "skill.inspire_knights.name": "Inspire Knights",
+  "skill.round_table.name": "Round Table",
 
   // ── arenas page ──────────────────────────────────────────────────────
   "arenas.title": "Arenas",

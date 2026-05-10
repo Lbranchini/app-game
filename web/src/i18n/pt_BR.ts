@@ -128,16 +128,64 @@ export const ptBR: Record<string, string> = {
   "characters.openSubtitle": "HP {{hp}} • {{archetype}}",
   "characters.noUnlockRule": "Nenhuma regra de desbloqueio cadastrada ainda.",
 
-  // ── skills (starter trio) ────────────────────────────────────────────
+  // ── skills (todos os ids do YAML) ────────────────────────────────────
+  // Gregos
   "skill.spear.name": "Lança Mortal",
-  "skill.charge.name": "Investida Heroica",
-  "skill.divine_armor.name": "Armadura Divina",
-  "skill.aegis.name": "Égide de Atena",
-  "skill.smite.name": "Golpe da Coruja",
-  "skill.wisdom.name": "Sabedoria da Cidade",
+  "skill.charge.name": "Investida Mirmídone",
+  "skill.wrath.name": "Ira de Peleu",
+  "skill.spear_of_wisdom.name": "Lança da Sabedoria",
+  "skill.counsel.name": "Conselho",
+  "skill.aegis.name": "Égide",
+  "skill.unsettling_gaze.name": "Olhar Inquietante",
+  "skill.serpent_hiss.name": "Sibilo das Serpentes",
+  "skill.petrification.name": "Petrificação",
+  // Nórdicos
+  "skill.mjolnir.name": "Mjölnir",
+  "skill.side_thunder.name": "Trovão Lateral",
+  "skill.ragnarok.name": "Ragnarök",
+  "skill.golden_lie.name": "Mentira Dourada",
+  "skill.mirror_image.name": "Imagem Espelhada",
+  "skill.asgard_deceit.name": "Trapaça de Asgard",
+  // Egípcios
   "skill.wraps.name": "Bandagens Sufocantes",
-  "skill.scales.name": "Balança de Anúbis",
-  "skill.gateway.name": "Portal do Pós-Vida",
+  "skill.sentence.name": "Sentença",
+  "skill.heart_burden.name": "Peso do Coração",
+  "skill.mothers_hands.name": "Mãos da Mãe",
+  "skill.protective_wings.name": "Asas Protetoras",
+  "skill.resurgence.name": "Ressurgimento",
+  "skill.royal_decree.name": "Decreto Real",
+  "skill.charm.name": "Encanto",
+  "skill.queen_of_the_nile.name": "Rainha do Nilo",
+  // Chineses
+  "skill.crescent_staff.name": "Cajado Crescente",
+  "skill.hair_clones.name": "Clones de Cabelo",
+  "skill.monkey_king.name": "Rei dos Macacos",
+  "skill.hidden_sword.name": "Espada Oculta",
+  "skill.disguise.name": "Disfarce",
+  "skill.family_honor.name": "Honra da Família",
+  // Japoneses
+  "skill.solar_mirror.name": "Espelho Solar",
+  "skill.eternal_morning.name": "Manhã Eterna",
+  "skill.sacred_cave.name": "Caverna Sagrada",
+  // Astecas
+  "skill.whispered_wind.name": "Vento Sussurrado",
+  "skill.sacred_plume.name": "Plumagem Sagrada",
+  "skill.sacred_breath.name": "Sopro Sagrado",
+  // Africano (Akan)
+  "skill.spider_thread.name": "Fio da Aranha",
+  "skill.trap.name": "Armadilha",
+  "skill.web_of_lies.name": "Teia de Mentiras",
+  // Mesopotâmicos
+  "skill.spear_of_dawn.name": "Lança da Aurora",
+  "skill.descent_underworld.name": "Descida ao Submundo",
+  "skill.queen_returns.name": "O Retorno da Rainha",
+  // Históricos
+  "skill.sacred_sword.name": "Espada Sagrada",
+  "skill.standard_raised.name": "Estandarte Erguido",
+  "skill.vow_of_orleans.name": "Voto de Orléans",
+  "skill.excalibur.name": "Excálibur",
+  "skill.inspire_knights.name": "Inspirar Cavaleiros",
+  "skill.round_table.name": "Távola Redonda",
 
   // ── arenas page ──────────────────────────────────────────────────────
   "arenas.title": "Arenas",
