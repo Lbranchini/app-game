@@ -292,4 +292,23 @@ export const en: Record<string, string> = {
   "error.draft.not_found": "Draft not found.",
   "error.draft.error": "Couldn't process that draft action.",
   "error.draft.bad_phase": "The draft isn't ready for that yet.",
+
+  // ── error codes (auth) ───────────────────────────────────────────────
+  "error.auth.google.redirect_uri_missing":
+    "Google sign-in isn't fully configured (redirect URI missing).",
+  "error.auth.google.not_configured":
+    "Google sign-in isn't enabled on this server.",
+  "error.auth.google.no_subject":
+    "Google didn't return a verified account; please try again.",
+  "error.auth.apple.not_configured":
+    "Apple sign-in isn't enabled on this server.",
+  "error.auth.apple.missing_code": "Apple didn't return an authorization code.",
+  "error.auth.apple.token_exchange_failed":
+    "Couldn't reach Apple's token endpoint. Try again in a moment.",
+  "error.auth.apple.no_id_token":
+    "Apple didn't return an identity token; please try again.",
+  "error.auth.apple.id_token_invalid":
+    "Apple's identity token failed verification.",
+  "error.auth.dev_token.disabled":
+    "The dev token endpoint is disabled in this environment.",
 };

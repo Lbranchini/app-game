@@ -290,4 +290,24 @@ export const ptBR: Record<string, string> = {
   "error.draft.not_found": "Draft não encontrado.",
   "error.draft.error": "Não consegui processar essa ação no draft.",
   "error.draft.bad_phase": "O draft ainda não está pronto pra isso.",
+
+  // ── error codes (auth) ───────────────────────────────────────────────
+  "error.auth.google.redirect_uri_missing":
+    "Login com Google não está configurado (redirect URI ausente).",
+  "error.auth.google.not_configured":
+    "Login com Google não está habilitado neste servidor.",
+  "error.auth.google.no_subject":
+    "O Google não retornou uma conta verificada; tente novamente.",
+  "error.auth.apple.not_configured":
+    "Login com Apple não está habilitado neste servidor.",
+  "error.auth.apple.missing_code":
+    "A Apple não retornou um código de autorização.",
+  "error.auth.apple.token_exchange_failed":
+    "Não consegui contatar o servidor da Apple. Tente em alguns segundos.",
+  "error.auth.apple.no_id_token":
+    "A Apple não retornou um token de identidade; tente novamente.",
+  "error.auth.apple.id_token_invalid":
+    "O token da Apple falhou na verificação.",
+  "error.auth.dev_token.disabled":
+    "O endpoint de token dev está desabilitado neste ambiente.",
 };

@@ -61,15 +61,29 @@ def test_dev_start_bad_team_size_carries_stable_code(client: TestClient) -> None
     assert body["details"] == {"team_a": 1, "team_b": 3}
 
 
-def test_legacy_string_detail_falls_back_to_http_status_code(client: TestClient) -> None:
-    """Routes that still raise `HTTPException(detail=str)` keep working —
-    the envelope stays usable, just without a hand-picked code."""
-    # `/match/dev/start` with valid sizes but unknown character names hits
-    # the `match.unknown_id` branch (also coded), so reach for an auth
-    # endpoint that still uses string detail to verify the fallback path.
+def test_unauthenticated_me_falls_back_to_http_status_code(client: TestClient) -> None:
+    """`/auth/me` without a token bubbles up FastAPI's bare 401, which
+    still flows through the unified envelope as `http_401`."""
     resp = client.get("/auth/me")
     assert resp.status_code == 401
     body = resp.json()
-    # Auth's default 401 ("Not authenticated") → http_401 fallback.
     assert body["code"].startswith("http_")
     assert body["message"] != ""
+
+
+def test_google_login_without_redirect_uri_carries_stable_code(
+    client: TestClient,
+) -> None:
+    resp = client.get("/auth/google/login", follow_redirects=False)
+    assert resp.status_code == 501
+    body = resp.json()
+    # The default settings don't ship a Google redirect URI, so this
+    # is the first guard the route hits.
+    assert body["code"] == "auth.google.redirect_uri_missing"
+
+
+def test_apple_callback_without_config_carries_stable_code(client: TestClient) -> None:
+    resp = client.post("/auth/apple/callback", data={"code": "anything"})
+    assert resp.status_code == 501
+    body = resp.json()
+    assert body["code"] == "auth.apple.not_configured"

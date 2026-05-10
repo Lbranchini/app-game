@@ -15,7 +15,7 @@ from __future__ import annotations
 from typing import Annotated
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, Request, status
 from fastapi.responses import JSONResponse, RedirectResponse
 from pydantic import BaseModel
 
@@ -27,6 +27,7 @@ from agora.interfaces.api.apple_oauth import (
     verify_id_token,
 )
 from agora.interfaces.api.dependencies import get_player_repository
+from agora.interfaces.api.errors import raise_api_error
 from agora.interfaces.api.oauth import registry
 from agora.interfaces.api.rate_limit import limiter
 from agora.interfaces.api.security import (
@@ -73,15 +74,17 @@ async def google_login(
     settings: Annotated[Settings, Depends(get_settings)],
 ) -> RedirectResponse:
     if not settings.google_redirect_uri:
-        raise HTTPException(
-            status_code=status.HTTP_501_NOT_IMPLEMENTED,
-            detail="GOOGLE_REDIRECT_URI is not configured.",
+        raise_api_error(
+            status.HTTP_501_NOT_IMPLEMENTED,
+            "auth.google.redirect_uri_missing",
+            "GOOGLE_REDIRECT_URI is not configured.",
         )
     client = registry.google(settings)
     if client is None:
-        raise HTTPException(
-            status_code=status.HTTP_501_NOT_IMPLEMENTED,
-            detail="Google OAuth not configured. Set GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET.",
+        raise_api_error(
+            status.HTTP_501_NOT_IMPLEMENTED,
+            "auth.google.not_configured",
+            "Google OAuth not configured. Set GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET.",
         )
     return await client.authorize_redirect(request, settings.google_redirect_uri)
 
@@ -95,9 +98,10 @@ async def google_callback(
 ) -> RedirectResponse:
     client = registry.google(settings)
     if client is None:
-        raise HTTPException(
-            status_code=status.HTTP_501_NOT_IMPLEMENTED,
-            detail="Google OAuth not configured.",
+        raise_api_error(
+            status.HTTP_501_NOT_IMPLEMENTED,
+            "auth.google.not_configured",
+            "Google OAuth not configured.",
         )
     token = await client.authorize_access_token(request)
     userinfo = token.get("userinfo")
@@ -105,9 +109,10 @@ async def google_callback(
         # Older Authlib returns id_token claims under a different shape.
         userinfo = await client.parse_id_token(request, token)
     if not userinfo or not userinfo.get("sub"):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Google did not return an authenticated subject.",
+        raise_api_error(
+            status.HTTP_400_BAD_REQUEST,
+            "auth.google.no_subject",
+            "Google did not return an authenticated subject.",
         )
     provider_subject = f"google:{userinfo['sub']}"
     player = players.upsert_by_provider(
@@ -164,9 +169,10 @@ async def apple_callback(
     """
     config = _apple_config_or_none(settings)
     if config is None or settings.apple_redirect_uri is None:
-        raise HTTPException(
-            status_code=status.HTTP_501_NOT_IMPLEMENTED,
-            detail=(
+        raise_api_error(
+            status.HTTP_501_NOT_IMPLEMENTED,
+            "auth.apple.not_configured",
+            (
                 "Apple OAuth not configured. Set APPLE_TEAM_ID / APPLE_CLIENT_ID"
                 " / APPLE_KEY_ID / APPLE_PRIVATE_KEY / APPLE_REDIRECT_URI."
             ),
@@ -175,9 +181,10 @@ async def apple_callback(
     form = await request.form()
     code = form.get("code")
     if not isinstance(code, str) or not code:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Apple callback missing `code`.",
+        raise_api_error(
+            status.HTTP_400_BAD_REQUEST,
+            "auth.apple.missing_code",
+            "Apple callback missing `code`.",
         )
 
     try:
@@ -187,25 +194,30 @@ async def apple_callback(
             redirect_uri=settings.apple_redirect_uri,
         )
     except httpx.HTTPError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=f"Apple token exchange failed: {exc}",
-        ) from exc
+        raise_api_error(
+            status.HTTP_502_BAD_GATEWAY,
+            "auth.apple.token_exchange_failed",
+            f"Apple token exchange failed: {exc}",
+            cause=exc,
+        )
 
     id_token = token_payload.get("id_token")
     if not isinstance(id_token, str):
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail="Apple did not return an id_token.",
+        raise_api_error(
+            status.HTTP_502_BAD_GATEWAY,
+            "auth.apple.no_id_token",
+            "Apple did not return an id_token.",
         )
 
     try:
         claims = verify_id_token(id_token, expected_aud=config.client_id)
     except Exception as exc:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Apple id_token failed verification: {exc}",
-        ) from exc
+        raise_api_error(
+            status.HTTP_400_BAD_REQUEST,
+            "auth.apple.id_token_invalid",
+            f"Apple id_token failed verification: {exc}",
+            cause=exc,
+        )
 
     # Apple only sends `user.name` on the *first* sign-in; subsequent logins
     # have to fall back to whatever we stored. Read it best-effort so a fresh
@@ -257,7 +269,11 @@ def dev_token(
     that signal is enough to detect non-local environments.
     """
     if settings.jwt_signing_secret != "dev-only-change-me":
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+        raise_api_error(
+            status.HTTP_404_NOT_FOUND,
+            "auth.dev_token.disabled",
+            "Dev token endpoint is disabled in non-dev environments.",
+        )
     user = AuthenticatedUser(sub="dev:local", email="dev@local", name="Dev User")
     return TokenResponse(
         access_token=issue_access_token(user),
