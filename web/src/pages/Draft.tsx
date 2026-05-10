@@ -4,6 +4,8 @@ import { useQuery } from "@tanstack/react-query";
 
 import { api, auth } from "@/api/client";
 import { draftApi, type DraftState, type Side } from "@/api/draft";
+import { formatApiError } from "@/api/format_error";
+import { useT, type TranslateFn } from "@/i18n";
 import type { Character } from "@/types/api";
 
 /**
@@ -16,6 +18,7 @@ import type { Character } from "@/types/api";
  *    here from `/matchmaking` once the server pairs two players.
  */
 export function DraftPage() {
+  const t = useT();
   const navigate = useNavigate();
   const params = useParams<{ draftId?: string }>();
   const [searchParams] = useSearchParams();
@@ -40,7 +43,7 @@ export function DraftPage() {
     if (!liveMode || !params.draftId) return;
     const token = auth.getToken();
     if (!token) {
-      setError("Not authenticated.");
+      setError(t("draft.notAuth"));
       return;
     }
     const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
@@ -57,7 +60,7 @@ export function DraftPage() {
         }
       }
     };
-    ws.onerror = () => setError("WebSocket error.");
+    ws.onerror = () => setError(t("draft.wsError"));
     wsRef.current = ws;
     return () => ws.close();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -75,7 +78,7 @@ export function DraftPage() {
         }),
       );
     } catch (e) {
-      setError(String(e));
+      setError(formatApiError(e, t));
     }
   };
 
@@ -85,7 +88,7 @@ export function DraftPage() {
       const next = await draftApi.ban(draft.draft_id, side, characterId);
       if (!liveMode) setDraft(next); // live mode receives via WS
     } catch (e) {
-      setError(String(e));
+      setError(formatApiError(e, t));
     }
   };
 
@@ -95,7 +98,7 @@ export function DraftPage() {
       const next = await draftApi.pick(draft.draft_id, side, characterId);
       if (!liveMode) setDraft(next);
     } catch (e) {
-      setError(String(e));
+      setError(formatApiError(e, t));
     }
   };
 
@@ -118,24 +121,31 @@ export function DraftPage() {
 
   // --- render -------------------------------------------------------------
   if (characters.isLoading || arenas.isLoading) {
-    return <p className="p-8">Loading…</p>;
+    return <p className="p-8">{t("common.loading")}</p>;
   }
   if (!characters.data || !arenas.data) {
-    return <p className="p-8 text-red-400">Catalog failed to load.</p>;
+    return <p className="p-8 text-red-400">{t("draft.catalogFailed")}</p>;
   }
 
   if (!liveMode && !draft) {
+    // The tagline carries an inline link; we render the prefix/suffix
+    // around `<a>` from the localized template by splitting on the
+    // {{matchmakingLink}} placeholder.
+    const tagline = t("draft.devTagline", undefined, {
+      matchmakingLink: "__MATCHMAKING__",
+    });
+    const [prefix, suffix = ""] = tagline.split("__MATCHMAKING__");
     return (
       <div className="p-8">
-        <h2 className="mb-4 text-2xl font-bold">Ranked Draft (dev mode)</h2>
+        <h2 className="mb-4 text-2xl font-bold">{t("draft.devTitle")}</h2>
         <p className="mb-4 text-sm text-slate-400">
-          Drives both sides locally. For multiplayer use{" "}
+          {prefix}
           <a className="text-emerald-400 underline" href="/matchmaking">
-            /matchmaking
+            {t("draft.matchmakingLink")}
           </a>
-          .
+          {suffix}
         </p>
-        <label className="mb-3 block text-sm text-slate-400">Arena:</label>
+        <label className="mb-3 block text-sm text-slate-400">{t("draft.arenaLabel")}</label>
         <select
           value={arenaId}
           onChange={(e) => setArenaId(e.target.value)}
@@ -152,7 +162,7 @@ export function DraftPage() {
           onClick={start}
           className="rounded-md bg-emerald-600 px-4 py-2 font-medium hover:bg-emerald-500"
         >
-          Start draft
+          {t("draft.startDraft")}
         </button>
         {error && <p className="mt-4 text-sm text-red-400">{error}</p>}
       </div>
@@ -160,7 +170,7 @@ export function DraftPage() {
   }
 
   if (!draft) {
-    return <p className="p-8">Connecting to draft…</p>;
+    return <p className="p-8">{t("draft.connecting")}</p>;
   }
 
   const arena = arenas.data.find((a) => a.id === draft.arena_id);
@@ -196,21 +206,26 @@ export function DraftPage() {
     <div className="p-8">
       <header className="mb-6">
         <h2 className="text-2xl font-bold">
-          Draft {liveMode && querySide && `— you are side ${querySide}`}
+          {t("draft.title")}
+          {liveMode && querySide && ` ${t("draft.youAreSide", undefined, { side: querySide })}`}
         </h2>
         <p className="text-sm text-slate-400">
-          Arena <span className="font-semibold">{arena?.name ?? draft.arena_id}</span>{" "}
+          <span>
+            {t("draft.arenaIs", undefined, { arena: arena?.name ?? draft.arena_id })}
+          </span>
           {arena?.description && <span className="ml-2 italic">— {arena.description}</span>}
         </p>
         <p className="mt-2 text-sm">
-          Phase: <span className="font-semibold uppercase">{draft.phase}</span>
+          {t("draft.phaseLabel", undefined, {
+            phase: t(`draft.phase.${draft.phase}`, draft.phase.toUpperCase()),
+          })}
           {expectedSide && (
             <>
-              {" "}
-              · Now acting:{" "}
+              {" · "}
+              {t("draft.nowActing")}{" "}
               <span className={canAct ? "font-semibold text-emerald-400" : "font-semibold"}>
-                side {expectedSide}
-                {canAct && " (you)"}
+                {t("draft.sideX", undefined, { side: expectedSide })}
+                {canAct && ` ${t("draft.youSuffix")}`}
               </span>
             </>
           )}
@@ -218,16 +233,14 @@ export function DraftPage() {
       </header>
 
       <div className="grid gap-4 md:grid-cols-2">
-        <SideSummary title="Side A" ban={draft.bans.A} picks={draft.picks.A} />
-        <SideSummary title="Side B" ban={draft.bans.B} picks={draft.picks.B} />
+        <SideSummary title={t("common.sideA")} ban={draft.bans.A} picks={draft.picks.A} t={t} />
+        <SideSummary title={t("common.sideB")} ban={draft.bans.B} picks={draft.picks.B} t={t} />
       </div>
 
       <h3 className="mt-8 mb-3 text-sm font-semibold uppercase text-slate-400">
-        Pool
+        {t("draft.pool")}
         {liveMode && unlockedSet && (
-          <span className="ml-2 font-normal text-slate-500">
-            (locked picks are greyed out)
-          </span>
+          <span className="ml-2 font-normal text-slate-500">{t("draft.lockedHint")}</span>
         )}
       </h3>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
@@ -266,7 +279,7 @@ export function DraftPage() {
       </div>
 
       {draft.phase === "confirm" && (
-        <p className="mt-6 text-emerald-400">Draft complete. Starting match…</p>
+        <p className="mt-6 text-emerald-400">{t("draft.complete")}</p>
       )}
       {error && <p className="mt-4 text-sm text-red-400">{error}</p>}
     </div>
@@ -277,19 +290,36 @@ function SideSummary({
   title,
   ban,
   picks,
+  t,
 }: {
   title: string;
   ban: string | null;
   picks: string[];
+  t: TranslateFn;
 }) {
+  const dash = t("common.dash");
+  // The localized template carries `{{value}}`; we split on the
+  // placeholder so the actual ban/picks text can be styled in React
+  // without falling back to dangerouslySetInnerHTML.
+  const renderTemplate = (key: string, valueNode: React.ReactNode) => {
+    const template = t(key, undefined, { value: "__VALUE__" });
+    const [prefix, suffix = ""] = template.split("__VALUE__");
+    return (
+      <>
+        {prefix}
+        <span className="text-slate-200">{valueNode}</span>
+        {suffix}
+      </>
+    );
+  };
   return (
     <div className="rounded-xl bg-slate-800 p-4">
       <h3 className="mb-2 text-lg font-bold">{title}</h3>
       <p className="text-sm text-slate-400">
-        Ban: <span className="text-slate-200">{ban ?? "—"}</span>
+        {renderTemplate("draft.banShort", ban ?? dash)}
       </p>
       <p className="mt-1 text-sm text-slate-400">
-        Picks: <span className="text-slate-200">{picks.join(", ") || "—"}</span>
+        {renderTemplate("draft.picksShort", picks.join(", ") || dash)}
       </p>
     </div>
   );
@@ -306,6 +336,7 @@ function CharacterTile({
   highlight: "banned" | "team_a" | "team_b" | "locked" | null;
   onClick: () => void;
 }) {
+  const t = useT();
   const colors = {
     banned: "bg-red-900/40 line-through opacity-60",
     team_a: "bg-blue-900/40 ring-1 ring-blue-500",
@@ -326,7 +357,10 @@ function CharacterTile({
         <span className="text-xs uppercase text-slate-400">{character.mythology}</span>
       </div>
       <p className="text-xs text-slate-500">
-        HP {character.base_hp} • {character.archetype.replace("_", " ")}
+        {t("characters.openSubtitle", undefined, {
+          hp: character.base_hp,
+          archetype: character.archetype.replace("_", " "),
+        })}
       </p>
     </button>
   );

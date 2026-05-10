@@ -33,6 +33,9 @@ export const en: Record<string, string> = {
   "common.opponent": "Opponent",
   "common.empty": "empty",
   "common.free": "free",
+  "common.sideA": "Side A",
+  "common.sideB": "Side B",
+  "common.dash": "—",
 
   // ── login ────────────────────────────────────────────────────────────
   "login.tagline": "Sign in to enter the Agora.",
@@ -142,6 +145,55 @@ export const en: Record<string, string> = {
   "skill.wraps.name": "Choking Wraps",
   "skill.scales.name": "Scales of Anubis",
   "skill.gateway.name": "Gateway to the Afterlife",
+
+  // ── arenas page ──────────────────────────────────────────────────────
+  "arenas.title": "Arenas",
+  "arenas.loading": "Loading arenas…",
+  "arenas.failed": "Failed: {{error}}",
+  "arenas.noModifiers": "No modifiers",
+  "arenas.modifierCount": "{{count}} modifier(s)",
+
+  // ── matches page ─────────────────────────────────────────────────────
+  "matches.title": "Recent matches",
+  "matches.failed": "Failed: {{error}}",
+  "matches.empty": "No matches yet — finish one and it'll show up here.",
+  "matches.col.when": "When",
+  "matches.col.arena": "Arena",
+  "matches.col.sideA": "Side A",
+  "matches.col.sideB": "Side B",
+  "matches.col.winner": "Winner",
+  "matches.col.turns": "Turns",
+  "matches.col.elo": "ELO Δ",
+  "matches.draw": "draw",
+
+  // ── draft page ───────────────────────────────────────────────────────
+  "draft.devTitle": "Ranked Draft (dev mode)",
+  "draft.devTagline":
+    "Drives both sides locally. For multiplayer head to {{matchmakingLink}}.",
+  "draft.matchmakingLink": "Matchmaking",
+  "draft.arenaLabel": "Arena:",
+  "draft.startDraft": "Start draft",
+  "draft.connecting": "Connecting to draft…",
+  "draft.catalogFailed": "Catalog failed to load.",
+  "draft.title": "Draft",
+  "draft.youAreSide": "— you are side {{side}}",
+  "draft.arenaIs": "Arena {{arena}}",
+  "draft.phaseLabel": "Phase: {{phase}}",
+  "draft.phase.ban": "BAN",
+  "draft.phase.pick": "PICK",
+  "draft.phase.confirm": "CONFIRM",
+  "draft.phase.done": "DONE",
+  "draft.phase.cancelled": "CANCELLED",
+  "draft.nowActing": "Now acting:",
+  "draft.sideX": "side {{side}}",
+  "draft.youSuffix": "(you)",
+  "draft.pool": "Pool",
+  "draft.lockedHint": "(locked picks are greyed out)",
+  "draft.banShort": "Ban: {{value}}",
+  "draft.picksShort": "Picks: {{value}}",
+  "draft.complete": "Draft complete. Starting match…",
+  "draft.notAuth": "Not authenticated.",
+  "draft.wsError": "WebSocket error.",
 
   // ── error codes (HTTP) ───────────────────────────────────────────────
   "error.match.bad_team_size": "Each team must have exactly 3 characters.",

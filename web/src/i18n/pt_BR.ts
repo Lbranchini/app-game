@@ -26,6 +26,9 @@ export const ptBR: Record<string, string> = {
   "common.opponent": "Oponente",
   "common.empty": "vazio",
   "common.free": "grátis",
+  "common.sideA": "Lado A",
+  "common.sideB": "Lado B",
+  "common.dash": "—",
 
   // ── login ────────────────────────────────────────────────────────────
   "login.tagline": "Entre para acessar a Ágora.",
@@ -135,6 +138,55 @@ export const ptBR: Record<string, string> = {
   "skill.wraps.name": "Bandagens Sufocantes",
   "skill.scales.name": "Balança de Anúbis",
   "skill.gateway.name": "Portal do Pós-Vida",
+
+  // ── arenas page ──────────────────────────────────────────────────────
+  "arenas.title": "Arenas",
+  "arenas.loading": "Carregando arenas…",
+  "arenas.failed": "Falhou: {{error}}",
+  "arenas.noModifiers": "Sem modificadores",
+  "arenas.modifierCount": "{{count}} modificador(es)",
+
+  // ── matches page ─────────────────────────────────────────────────────
+  "matches.title": "Partidas recentes",
+  "matches.failed": "Falhou: {{error}}",
+  "matches.empty": "Nenhuma partida ainda — termine uma e ela aparece aqui.",
+  "matches.col.when": "Quando",
+  "matches.col.arena": "Arena",
+  "matches.col.sideA": "Lado A",
+  "matches.col.sideB": "Lado B",
+  "matches.col.winner": "Vencedor",
+  "matches.col.turns": "Turnos",
+  "matches.col.elo": "ELO Δ",
+  "matches.draw": "empate",
+
+  // ── draft page ───────────────────────────────────────────────────────
+  "draft.devTitle": "Draft Ranqueado (modo dev)",
+  "draft.devTagline":
+    "Controla os dois lados localmente. Para multiplayer, vá em {{matchmakingLink}}.",
+  "draft.matchmakingLink": "Matchmaking",
+  "draft.arenaLabel": "Arena:",
+  "draft.startDraft": "Iniciar draft",
+  "draft.connecting": "Conectando ao draft…",
+  "draft.catalogFailed": "Falha ao carregar o catálogo.",
+  "draft.title": "Draft",
+  "draft.youAreSide": "— você é o lado {{side}}",
+  "draft.arenaIs": "Arena {{arena}}",
+  "draft.phaseLabel": "Fase: {{phase}}",
+  "draft.phase.ban": "BANIR",
+  "draft.phase.pick": "ESCOLHER",
+  "draft.phase.confirm": "CONFIRMAR",
+  "draft.phase.done": "PRONTO",
+  "draft.phase.cancelled": "CANCELADO",
+  "draft.nowActing": "Agindo agora:",
+  "draft.sideX": "lado {{side}}",
+  "draft.youSuffix": "(você)",
+  "draft.pool": "Pool",
+  "draft.lockedHint": "(picks bloqueados ficam apagados)",
+  "draft.banShort": "Banimento: {{value}}",
+  "draft.picksShort": "Picks: {{value}}",
+  "draft.complete": "Draft completo. Iniciando partida…",
+  "draft.notAuth": "Não autenticado.",
+  "draft.wsError": "Erro no WebSocket.",
 
   // ── error codes (HTTP) ───────────────────────────────────────────────
   "error.match.bad_team_size": "Cada time precisa ter exatamente 3 personagens.",
