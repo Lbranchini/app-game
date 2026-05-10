@@ -134,6 +134,32 @@ export const en: Record<string, string> = {
   "characters.lockedSubtitle": "HP {{hp}} • {{archetype}} · locked",
   "characters.openSubtitle": "HP {{hp}} • {{archetype}}",
   "characters.noUnlockRule": "No unlock rule registered for this character yet.",
+  "characters.noResults": "No characters match those filters.",
+  "characters.searchPlaceholder": "Search by name, mythology, archetype",
+  "characters.filter.mythology": "Mythology",
+  "characters.filter.archetype": "Archetype",
+  "characters.filter.clearAll": "Clear filters",
+  // Archetype labels (engine canonical names — used as i18n keys here)
+  "characters.archetype.damage_dealer": "damage dealer",
+  "characters.archetype.healer": "healer",
+  "characters.archetype.tank": "tank",
+  "characters.archetype.stunner": "stunner",
+  "characters.archetype.drainer": "drainer",
+  "characters.archetype.trickster": "trickster",
+  "characters.archetype.support": "support",
+  "characters.archetype.leader": "leader",
+  // Mythology labels (lowercased ids; YAML carries title-case but we
+  // i18n-lookup against the lowercased form to keep keys stable).
+  "characters.mythology.greek": "Greek",
+  "characters.mythology.norse": "Norse",
+  "characters.mythology.egyptian": "Egyptian",
+  "characters.mythology.chinese": "Chinese",
+  "characters.mythology.japanese": "Japanese",
+  "characters.mythology.aztec": "Aztec",
+  "characters.mythology.african": "African",
+  "characters.mythology.mesopotamian": "Mesopotamian",
+  "characters.mythology.british": "British",
+  "characters.mythology.historical": "Historical",
 
   // ── skills (every YAML skill, by id) ─────────────────────────────────
   // Greek

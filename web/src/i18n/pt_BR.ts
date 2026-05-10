@@ -127,6 +127,31 @@ export const ptBR: Record<string, string> = {
   "characters.lockedSubtitle": "HP {{hp}} • {{archetype}} · bloqueado",
   "characters.openSubtitle": "HP {{hp}} • {{archetype}}",
   "characters.noUnlockRule": "Nenhuma regra de desbloqueio cadastrada ainda.",
+  "characters.noResults": "Nenhum personagem corresponde a esses filtros.",
+  "characters.searchPlaceholder": "Buscar por nome, mitologia ou arquétipo",
+  "characters.filter.mythology": "Mitologia",
+  "characters.filter.archetype": "Arquétipo",
+  "characters.filter.clearAll": "Limpar filtros",
+  // Arquétipos
+  "characters.archetype.damage_dealer": "atacante",
+  "characters.archetype.healer": "curandeiro",
+  "characters.archetype.tank": "tanque",
+  "characters.archetype.stunner": "atordoador",
+  "characters.archetype.drainer": "drenador",
+  "characters.archetype.trickster": "trapaceiro",
+  "characters.archetype.support": "suporte",
+  "characters.archetype.leader": "líder",
+  // Mitologias
+  "characters.mythology.greek": "Grega",
+  "characters.mythology.norse": "Nórdica",
+  "characters.mythology.egyptian": "Egípcia",
+  "characters.mythology.chinese": "Chinesa",
+  "characters.mythology.japanese": "Japonesa",
+  "characters.mythology.aztec": "Asteca",
+  "characters.mythology.african": "Africana",
+  "characters.mythology.mesopotamian": "Mesopotâmica",
+  "characters.mythology.british": "Britânica",
+  "characters.mythology.historical": "Histórica",
 
   // ── skills (todos os ids do YAML) ────────────────────────────────────
   // Gregos

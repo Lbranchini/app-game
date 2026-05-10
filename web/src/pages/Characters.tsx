@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 
 import { api, type UnlockRulePayload } from "@/api/client";
@@ -21,6 +22,21 @@ export function CharactersPage() {
   const characters = useQuery({ queryKey: ["characters"], queryFn: api.listCharacters });
   const me = useQuery({ queryKey: ["me"], queryFn: api.me, refetchInterval: 30_000 });
   const rules = useQuery({ queryKey: ["unlock-rules"], queryFn: api.listUnlockRules });
+
+  // URL-synced filter state so a refresh (or a shared link) keeps the
+  // viewer's filters. Empty strings drop the key from the URL — keeps
+  // the bar above the address line legible while everything's selected.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const query = searchParams.get("q") ?? "";
+  const mythologyFilter = searchParams.get("mythology") ?? "";
+  const archetypeFilter = searchParams.get("archetype") ?? "";
+
+  const setFilter = (key: "q" | "mythology" | "archetype", value: string) => {
+    const next = new URLSearchParams(searchParams);
+    if (value) next.set(key, value);
+    else next.delete(key);
+    setSearchParams(next, { replace: true });
+  };
 
   const ruleByCharacter = useMemo(() => {
     const map = new Map<string, UnlockRulePayload>();
@@ -46,8 +62,30 @@ export function CharactersPage() {
   // exists to filter against.
   const playerKnown = Boolean(me.data?.player);
 
-  const unlockedChars = playerKnown ? all.filter((c) => unlocked.has(c.id)) : all;
-  const lockedChars = playerKnown ? all.filter((c) => !unlocked.has(c.id)) : [];
+  // Aggregate the filter chips off the actual roster so adding a new
+  // mythology/archetype in YAML lights up its chip automatically.
+  const mythologies = [...new Set(all.map((c) => c.mythology))].sort();
+  const archetypes = [...new Set(all.map((c) => c.archetype))].sort();
+
+  const matchesQuery = (c: Character) => {
+    if (!query) return true;
+    const q = query.toLowerCase();
+    return (
+      c.name.toLowerCase().includes(q) ||
+      c.mythology.toLowerCase().includes(q) ||
+      c.archetype.toLowerCase().includes(q)
+    );
+  };
+  const passes = (c: Character) =>
+    matchesQuery(c) &&
+    (!mythologyFilter || c.mythology === mythologyFilter) &&
+    (!archetypeFilter || c.archetype === archetypeFilter);
+
+  const filtered = all.filter(passes);
+  const unlockedChars = playerKnown ? filtered.filter((c) => unlocked.has(c.id)) : filtered;
+  const lockedChars = playerKnown ? filtered.filter((c) => !unlocked.has(c.id)) : [];
+  const noResults = filtered.length === 0;
+  const filtersActive = Boolean(query || mythologyFilter || archetypeFilter);
 
   return (
     <div className="p-8">
@@ -63,29 +101,164 @@ export function CharactersPage() {
         )}
       </header>
 
-      <h3 className="mb-3 text-sm font-semibold uppercase text-slate-400">{t("characters.unlocked")}</h3>
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {unlockedChars.map((c) => (
-          <CharacterCard key={c.id} character={c} t={t} />
-        ))}
-      </div>
+      <FilterBar
+        t={t}
+        query={query}
+        onQueryChange={(v) => setFilter("q", v)}
+        mythologies={mythologies}
+        mythologyFilter={mythologyFilter}
+        onMythologyChange={(v) => setFilter("mythology", v)}
+        archetypes={archetypes}
+        archetypeFilter={archetypeFilter}
+        onArchetypeChange={(v) => setFilter("archetype", v)}
+        clearAll={() => setSearchParams({}, { replace: true })}
+        filtersActive={filtersActive}
+      />
 
-      {lockedChars.length > 0 && (
+      {noResults ? (
+        <p className="mt-8 text-sm italic text-slate-500">
+          {t("characters.noResults", "No characters match those filters.")}
+        </p>
+      ) : (
         <>
-          <h3 className="mt-10 mb-3 text-sm font-semibold uppercase text-slate-400">{t("characters.locked")}</h3>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {lockedChars.map((c) => (
-              <LockedCharacterCard
-                key={c.id}
-                character={c}
-                rule={ruleByCharacter.get(c.id) ?? null}
-                progress={progress}
-                t={t}
-              />
-            ))}
-          </div>
+          {(unlockedChars.length > 0 || !playerKnown) && (
+            <>
+              <h3 className="mb-3 text-sm font-semibold uppercase text-slate-400">
+                {t("characters.unlocked")}
+              </h3>
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {unlockedChars.map((c) => (
+                  <CharacterCard key={c.id} character={c} t={t} />
+                ))}
+              </div>
+            </>
+          )}
+
+          {lockedChars.length > 0 && (
+            <>
+              <h3 className="mt-10 mb-3 text-sm font-semibold uppercase text-slate-400">
+                {t("characters.locked")}
+              </h3>
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {lockedChars.map((c) => (
+                  <LockedCharacterCard
+                    key={c.id}
+                    character={c}
+                    rule={ruleByCharacter.get(c.id) ?? null}
+                    progress={progress}
+                    t={t}
+                  />
+                ))}
+              </div>
+            </>
+          )}
         </>
       )}
+    </div>
+  );
+}
+
+function FilterBar({
+  t,
+  query,
+  onQueryChange,
+  mythologies,
+  mythologyFilter,
+  onMythologyChange,
+  archetypes,
+  archetypeFilter,
+  onArchetypeChange,
+  clearAll,
+  filtersActive,
+}: {
+  t: TranslateFn;
+  query: string;
+  onQueryChange: (value: string) => void;
+  mythologies: string[];
+  mythologyFilter: string;
+  onMythologyChange: (value: string) => void;
+  archetypes: string[];
+  archetypeFilter: string;
+  onArchetypeChange: (value: string) => void;
+  clearAll: () => void;
+  filtersActive: boolean;
+}) {
+  return (
+    <div className="mb-6 space-y-3 rounded-xl bg-slate-900/50 p-4 ring-1 ring-slate-800">
+      <div className="flex items-center gap-3">
+        <input
+          type="search"
+          value={query}
+          onChange={(e) => onQueryChange(e.target.value)}
+          placeholder={t("characters.searchPlaceholder", "Search by name, mythology, archetype")}
+          className="flex-1 rounded-md bg-slate-950 px-3 py-1.5 text-sm text-slate-100 ring-1 ring-slate-800 placeholder:text-slate-600 focus:outline-none focus:ring-emerald-500/60"
+        />
+        {filtersActive && (
+          <button
+            type="button"
+            onClick={clearAll}
+            className="rounded-md bg-slate-800 px-3 py-1.5 text-xs text-slate-300 ring-1 ring-slate-700 hover:bg-slate-700"
+          >
+            {t("characters.filter.clearAll", "Clear filters")}
+          </button>
+        )}
+      </div>
+
+      <FilterChips
+        legend={t("characters.filter.mythology", "Mythology")}
+        all={mythologies}
+        selected={mythologyFilter}
+        onSelect={onMythologyChange}
+        labelFor={(value) => t(`characters.mythology.${value.toLowerCase()}`, value)}
+      />
+      <FilterChips
+        legend={t("characters.filter.archetype", "Archetype")}
+        all={archetypes}
+        selected={archetypeFilter}
+        onSelect={onArchetypeChange}
+        labelFor={(value) =>
+          t(`characters.archetype.${value}`, value.replace(/_/g, " "))
+        }
+      />
+    </div>
+  );
+}
+
+function FilterChips({
+  legend,
+  all,
+  selected,
+  onSelect,
+  labelFor,
+}: {
+  legend: string;
+  all: string[];
+  selected: string;
+  onSelect: (value: string) => void;
+  labelFor: (value: string) => string;
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-1.5 text-xs">
+      <span className="mr-1 text-[10px] uppercase tracking-wider text-slate-500">{legend}</span>
+      {all.map((value) => {
+        const active = selected === value;
+        return (
+          <button
+            key={value}
+            type="button"
+            onClick={() => onSelect(active ? "" : value)}
+            aria-pressed={active}
+            className={[
+              "rounded-full px-2.5 py-0.5 capitalize transition",
+              active
+                ? "bg-emerald-500/20 text-emerald-200 ring-1 ring-emerald-500/60"
+                : "bg-slate-800 text-slate-400 ring-1 ring-slate-700 hover:bg-slate-700",
+            ].join(" ")}
+          >
+            {labelFor(value)}
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -154,7 +327,7 @@ function CharacterCard({ character, t }: { character: Character; t: TranslateFn 
       <p className="mt-1 text-sm text-slate-400">
         {t("characters.openSubtitle", undefined, {
           hp: character.base_hp,
-          archetype: character.archetype.replace("_", " "),
+          archetype: t(`characters.archetype.${character.archetype}`, character.archetype.replace(/_/g, " ")),
         })}
       </p>
       <CharacterTagline character={character} t={t} />
@@ -195,7 +368,7 @@ function LockedCharacterCard({
       <p className="mt-1 text-sm text-slate-500">
         {t("characters.lockedSubtitle", undefined, {
           hp: character.base_hp,
-          archetype: character.archetype.replace("_", " "),
+          archetype: t(`characters.archetype.${character.archetype}`, character.archetype.replace(/_/g, " ")),
         })}
       </p>
       <CharacterTagline character={character} t={t} />
