@@ -236,6 +236,51 @@ export const ptBR: Record<string, string> = {
   "draft.notAuth": "Não autenticado.",
   "draft.wsError": "Erro no WebSocket.",
 
+  // ── status effects (label + descrição da bolha do badge) ────────────
+  "status.poison.label": "veneno",
+  "status.poison.description": "Causa dano a cada turno baseado no valor.",
+  "status.bleed.label": "sangramento",
+  "status.bleed.description": "Causa dano a cada turno. Removido ao curar.",
+  "status.stun.label": "atordoado",
+  "status.stun.description": "Não pode agir neste turno.",
+  "status.silence.label": "silenciado",
+  "status.silence.description": "Não pode usar habilidades não-físicas.",
+  "status.disarm.label": "desarmado",
+  "status.disarm.description": "Não pode usar habilidades físicas.",
+  "status.stealth.label": "furtivo",
+  "status.stealth.description":
+    "Não pode ser alvo de habilidades de alvo único.",
+  "status.reflective.label": "reflexivo",
+  "status.reflective.description":
+    "Reflete uma parte do dano de volta para o atacante.",
+  "status.invulnerable.label": "invulnerável",
+  "status.invulnerable.description":
+    "Imune a todo dano e efeitos negativos.",
+  "status.damage_reduction.label": "redução de dano",
+  "status.damage_reduction.description":
+    "Dano recebido é reduzido pelo valor da pilha.",
+  "status.damage_buff.label": "dano aumentado",
+  "status.damage_buff.description":
+    "Dano causado é aumentado pelo valor da pilha.",
+  "status.regen.label": "regeneração",
+  "status.regen.description": "Recupera HP no início de cada turno.",
+  "status.vulnerable.label": "vulnerável",
+  "status.vulnerable.description":
+    "Não pode resistir a novos efeitos de status negativos.",
+  "status.marked.label": "marcado",
+  "status.marked.description":
+    "Recebe dano extra de todas as fontes.",
+  "status.drained.label": "drenado",
+  "status.drained.description": "Perde uma essência a cada turno.",
+  "status.shield.label": "escudo",
+  "status.shield.description":
+    "Absorve dano antes do HP. Dura até ser quebrado.",
+  "status.fallback.description": "Efeito de status ativo.",
+  "status.duration.infinite": "∞",
+  "status.duration.label": "Duração:",
+  "status.duration.turns": "turnos",
+  "status.duration.turn": "turno",
+
   // ── error codes (HTTP) ───────────────────────────────────────────────
   "error.match.bad_team_size": "Cada time precisa ter exatamente 3 personagens.",
   "error.match.unknown_id": "ID de personagem ou arena desconhecido.",

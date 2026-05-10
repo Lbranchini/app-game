@@ -921,24 +921,6 @@ function BattleSide({
   );
 }
 
-const STATUS_DESCRIPTIONS: Record<string, string> = {
-  poison:           "Deals damage each turn based on value.",
-  bleed:            "Deals damage each turn. Removed when healed.",
-  stun:             "Cannot act this turn.",
-  silence:          "Cannot use non-physical skills.",
-  disarm:           "Cannot use physical skills.",
-  stealth:          "Cannot be targeted by single-target skills.",
-  reflective:       "Reflects a portion of damage back to the attacker.",
-  invulnerable:     "Immune to all damage and harmful effects.",
-  damage_reduction: "Incoming damage is reduced by the stack value.",
-  damage_buff:      "Outgoing damage is increased by the stack value.",
-  regen:            "Recovers HP at the start of each turn.",
-  vulnerable:       "Cannot resist new negative status effects.",
-  marked:           "Takes bonus damage from all sources.",
-  drained:          "Loses essence each turn.",
-  shield:           "Absorbs incoming damage before HP is reduced. Lasts until depleted.",
-};
-
 function StatusBadge({
   status,
   charById,
@@ -946,7 +928,11 @@ function StatusBadge({
   status: CharacterState["statuses"][number];
   charById: Map<string, Character>;
 }) {
+  const t = useT();
   const [hovered, setHovered] = useState(false);
+  // Both rendering paths use the same localised label; centralise the
+  // lookup so a missing translation falls back to the humanised id once.
+  const localizedLabel = t(`status.${status.name}.label`, status.name.replace(/_/g, " "));
 
   const sourceChar = status.source ? charById.get(status.source) : null;
   const sourceSkill = sourceChar?.skills.find((sk) =>
@@ -983,22 +969,28 @@ function StatusBadge({
             </div>
           )}
           <div className="text-[11px] font-bold uppercase tracking-wider text-slate-100">
-            {status.name.replace(/_/g, " ")}
+            {localizedLabel}
             {status.value > 0 && <span className="ml-1 font-mono text-slate-400">{status.value}</span>}
           </div>
           <p className="text-[10px] text-slate-400 leading-relaxed">
-            {STATUS_DESCRIPTIONS[status.name] ?? "Active status effect."}
+            {t(`status.${status.name}.description`, t("status.fallback.description"))}
           </p>
           <div className="text-[10px] text-slate-500">
-            Duration: <span className="text-slate-300 font-mono">{status.duration === -1 ? "∞" : status.duration}</span>{status.duration !== -1 && (status.duration !== 1 ? " turns" : " turn")}
+            {t("status.duration.label")}{" "}
+            <span className="text-slate-300 font-mono">
+              {status.duration === -1 ? t("status.duration.infinite") : status.duration}
+            </span>
+            {status.duration !== -1 && (
+              " " + (status.duration !== 1 ? t("status.duration.turns") : t("status.duration.turn"))
+            )}
           </div>
         </div>
       )}
       <div className={`rounded overflow-hidden ring-1 cursor-default ${badgeColor} ${iconUrl ? "h-8 w-14" : "px-1.5 py-0.5 text-[10px] uppercase tracking-wider"}`}>
         {iconUrl ? (
-          <img src={iconUrl} alt={status.name} className="h-full w-full object-cover" />
+          <img src={iconUrl} alt={localizedLabel} className="h-full w-full object-cover" />
         ) : (
-          status.name.replace(/_/g, " ")
+          localizedLabel
         )}
       </div>
     </div>
