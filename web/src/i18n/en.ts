@@ -20,6 +20,7 @@ export const en: Record<string, string> = {
   "nav.draft": "Draft (dev)",
   "nav.battle": "Battle (dev)",
   "nav.matches": "Matches",
+  "nav.help": "Help",
   "nav.signOut": "Sign out",
   "nav.elo": "ELO {{elo}}",
 
@@ -319,6 +320,54 @@ export const en: Record<string, string> = {
   "status.duration.turns": "turns",
   "status.duration.turn": "turn",
 
+  // ── help page ────────────────────────────────────────────────────────
+  "help.title": "How to play",
+  "help.tagline":
+    "Quick reference for new players. Skim it before your first ranked match.",
+  "help.toc.title": "Sections",
+  "help.toc.match": "Match",
+  "help.toc.essences": "Essences",
+  "help.toc.skills": "Skills",
+  "help.toc.statuses": "Statuses",
+  "help.match.title": "How a match works",
+  "help.match.format":
+    "Two players each control a team of three mythological figures. Sides take alternating turns until one team's characters are all knocked out.",
+  "help.match.flow":
+    "Each turn: status effects tick, your active side's cooldowns decrement, then you queue actions (one per character), and finally Confirm. The opponent plays next.",
+  "help.match.timer":
+    "You have 60 seconds per turn. If you don't confirm, the server auto-resolves with whatever you've queued.",
+  "help.match.win":
+    "First side to reduce all three opponents to 0 HP wins. Long matches (60+ turns) decide on remaining HP.",
+  "help.essences.title": "Essences (energy)",
+  "help.essences.intro":
+    "Skills cost essences. There are four colored types plus a wildcard generic slot:",
+  "help.essences.vigor": "Vigor",
+  "help.essences.vigor.desc": "physical force, melee combat",
+  "help.essences.spirit": "Spirit",
+  "help.essences.spirit.desc": "arcane magic, elemental control",
+  "help.essences.mind": "Mind",
+  "help.essences.mind.desc": "illusion, manipulation, knowledge",
+  "help.essences.blood": "Blood",
+  "help.essences.blood.desc": "divine lineage, transformation",
+  "help.essences.generic": "Generic",
+  "help.essences.generic.desc":
+    "any color satisfies a generic slot — you pick what to spend",
+  "help.essences.generation":
+    "At the start of your turn you roll one random essence per alive character (up to 3). Unused essences stack between turns.",
+  "help.skills.title": "Skills",
+  "help.skills.intro":
+    "Each character has three skills plus a universal Dodge. Click a skill to start the action; pick a target on the board to confirm.",
+  "help.skills.cost":
+    "Cost: shown as colored dots next to the skill. You must have matching essences to pay it.",
+  "help.skills.cooldown":
+    "Cooldown: number of turns before the skill is usable again. Dodge resets after 4 turns.",
+  "help.skills.targets":
+    "Targets: a skill aims at a single enemy, all enemies, a single ally, all allies, or itself — the UI highlights only the legal targets.",
+  "help.skills.queue":
+    "Queue up to one action per character, reorder if needed, then press Confirm. Actions resolve in the order you queued them.",
+  "help.statuses.title": "Status effects",
+  "help.statuses.intro":
+    "Statuses last for a number of turns and modify what a character can do or how much damage they deal or take.",
   // ── error codes (HTTP) ───────────────────────────────────────────────
   "error.match.bad_team_size": "Each team must have exactly 3 characters.",
   "error.match.unknown_id": "Unknown character or arena id.",

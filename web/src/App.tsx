@@ -9,6 +9,7 @@ import { CharactersPage } from "@/pages/Characters";
 import { ArenasPage } from "@/pages/Arenas";
 import { BattlePage } from "@/pages/Battle";
 import { DraftPage } from "@/pages/Draft";
+import { HelpPage } from "@/pages/Help";
 import { MatchesPage } from "@/pages/Matches";
 import { MatchmakingPage } from "@/pages/Matchmaking";
 import { useAuthStore } from "@/stores/authStore";
@@ -43,6 +44,7 @@ function Header() {
         <Link to="/draft" className="hover:text-white">{t("nav.draft")}</Link>
         <Link to="/battle" className="hover:text-white">{t("nav.battle")}</Link>
         <Link to="/matches" className="hover:text-white">{t("nav.matches")}</Link>
+        <Link to="/help" className="hover:text-white">{t("nav.help")}</Link>
         <span className="ml-4 rounded-md bg-slate-800 px-3 py-1 text-xs text-slate-300">
           {displayName}
           {player && (
@@ -128,6 +130,14 @@ export function App() {
           element={
             <RequireAuth>
               <MatchesPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/help"
+          element={
+            <RequireAuth>
+              <HelpPage />
             </RequireAuth>
           }
         />

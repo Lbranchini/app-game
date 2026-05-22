@@ -13,6 +13,7 @@ export const ptBR: Record<string, string> = {
   "nav.draft": "Draft (dev)",
   "nav.battle": "Batalha (dev)",
   "nav.matches": "Partidas",
+  "nav.help": "Ajuda",
   "nav.signOut": "Sair",
   "nav.elo": "ELO {{elo}}",
 
@@ -316,6 +317,54 @@ export const ptBR: Record<string, string> = {
   "status.duration.turns": "turnos",
   "status.duration.turn": "turno",
 
+  // ── help page ────────────────────────────────────────────────────────
+  "help.title": "Como jogar",
+  "help.tagline":
+    "Resumo rápido pra novos jogadores. Dá uma lida antes da primeira partida ranqueada.",
+  "help.toc.title": "Seções",
+  "help.toc.match": "Partida",
+  "help.toc.essences": "Essências",
+  "help.toc.skills": "Habilidades",
+  "help.toc.statuses": "Status",
+  "help.match.title": "Como funciona a partida",
+  "help.match.format":
+    "Dois jogadores controlam um time de três figuras mitológicas cada. Os lados alternam turnos até que todos os personagens de um time sejam derrotados.",
+  "help.match.flow":
+    "A cada turno: efeitos de status são aplicados, os cooldowns do lado ativo diminuem, você enfileira ações (uma por personagem) e clica em Confirmar. O oponente joga em seguida.",
+  "help.match.timer":
+    "Você tem 60 segundos por turno. Se não confirmar, o servidor resolve automaticamente com o que estiver enfileirado.",
+  "help.match.win":
+    "O primeiro lado a derrubar os três oponentes vence. Partidas longas (60+ turnos) decidem pelo HP restante.",
+  "help.essences.title": "Essências (energia)",
+  "help.essences.intro":
+    "Habilidades custam essências. Existem quatro tipos coloridos mais um slot genérico:",
+  "help.essences.vigor": "Vigor",
+  "help.essences.vigor.desc": "força física, combate corpo-a-corpo",
+  "help.essences.spirit": "Espírito",
+  "help.essences.spirit.desc": "magia arcana, controle elemental",
+  "help.essences.mind": "Mente",
+  "help.essences.mind.desc": "ilusão, manipulação, conhecimento",
+  "help.essences.blood": "Sangue",
+  "help.essences.blood.desc": "linhagem divina, transformação",
+  "help.essences.generic": "Genérico",
+  "help.essences.generic.desc":
+    "qualquer cor satisfaz um slot genérico — você escolhe o que gastar",
+  "help.essences.generation":
+    "No início do seu turno você rola uma essência aleatória por personagem vivo (até 3). Essências não usadas se acumulam entre turnos.",
+  "help.skills.title": "Habilidades",
+  "help.skills.intro":
+    "Cada personagem tem três habilidades mais um Dodge universal. Clique numa habilidade para iniciar a ação; escolha um alvo no tabuleiro para confirmar.",
+  "help.skills.cost":
+    "Custo: pontos coloridos ao lado da habilidade. Você precisa das essências correspondentes pra pagar.",
+  "help.skills.cooldown":
+    "Cooldown: turnos até a habilidade ficar disponível de novo. O Dodge reseta em 4 turnos.",
+  "help.skills.targets":
+    "Alvos: a habilidade pode mirar um inimigo, todos os inimigos, um aliado, todos os aliados, ou o próprio personagem — a UI destaca só os alvos válidos.",
+  "help.skills.queue":
+    "Enfileire até uma ação por personagem, reordene se quiser, então clique em Confirmar. As ações resolvem na ordem em que você enfileirou.",
+  "help.statuses.title": "Efeitos de status",
+  "help.statuses.intro":
+    "Status duram alguns turnos e modificam o que um personagem pode fazer, ou quanto dano causa/recebe.",
   // ── error codes (HTTP) ───────────────────────────────────────────────
   "error.match.bad_team_size": "Cada time precisa ter exatamente 3 personagens.",
   "error.match.unknown_id": "ID de personagem ou arena desconhecido.",
