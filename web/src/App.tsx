@@ -12,6 +12,7 @@ import { DraftPage } from "@/pages/Draft";
 import { HelpPage } from "@/pages/Help";
 import { MatchesPage } from "@/pages/Matches";
 import { MatchmakingPage } from "@/pages/Matchmaking";
+import { ProfilePage } from "@/pages/Profile";
 import { useAuthStore } from "@/stores/authStore";
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
@@ -44,6 +45,7 @@ function Header() {
         <Link to="/draft" className="hover:text-white">{t("nav.draft")}</Link>
         <Link to="/battle" className="hover:text-white">{t("nav.battle")}</Link>
         <Link to="/matches" className="hover:text-white">{t("nav.matches")}</Link>
+        <Link to="/profile" className="hover:text-white">{t("nav.profile")}</Link>
         <Link to="/help" className="hover:text-white">{t("nav.help")}</Link>
         <span className="ml-4 rounded-md bg-slate-800 px-3 py-1 text-xs text-slate-300">
           {displayName}
@@ -138,6 +140,14 @@ export function App() {
           element={
             <RequireAuth>
               <HelpPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/profile"
+          element={
+            <RequireAuth>
+              <ProfilePage />
             </RequireAuth>
           }
         />

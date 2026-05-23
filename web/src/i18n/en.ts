@@ -20,6 +20,7 @@ export const en: Record<string, string> = {
   "nav.draft": "Draft (dev)",
   "nav.battle": "Battle (dev)",
   "nav.matches": "Matches",
+  "nav.profile": "Profile",
   "nav.help": "Help",
   "nav.signOut": "Sign out",
   "nav.elo": "ELO {{elo}}",
@@ -368,6 +369,25 @@ export const en: Record<string, string> = {
   "help.statuses.title": "Status effects",
   "help.statuses.intro":
     "Statuses last for a number of turns and modify what a character can do or how much damage they deal or take.",
+
+  // ── profile page ─────────────────────────────────────────────────────
+  "profile.noPlayer":
+    "No player profile yet. Play a match and your stats will appear here.",
+  "profile.unlocked": "{{count}} characters unlocked",
+  "profile.career.title": "Career",
+  "profile.career.played": "Matches",
+  "profile.career.wins": "Wins",
+  "profile.career.losses": "Losses",
+  "profile.career.draws": "Draws",
+  "profile.career.winRate": "Win rate: {{rate}}%",
+  "profile.combat.title": "Combat totals",
+  "profile.combat.dealt": "Damage dealt",
+  "profile.combat.taken": "Damage taken",
+  "profile.combat.healed": "Healing done",
+  "profile.mastery.title": "Status mastery",
+  "profile.mastery.tagline":
+    "Number of times you've applied each status on an opponent across your career.",
+
   // ── error codes (HTTP) ───────────────────────────────────────────────
   "error.match.bad_team_size": "Each team must have exactly 3 characters.",
   "error.match.unknown_id": "Unknown character or arena id.",

@@ -13,6 +13,7 @@ export const ptBR: Record<string, string> = {
   "nav.draft": "Draft (dev)",
   "nav.battle": "Batalha (dev)",
   "nav.matches": "Partidas",
+  "nav.profile": "Perfil",
   "nav.help": "Ajuda",
   "nav.signOut": "Sair",
   "nav.elo": "ELO {{elo}}",
@@ -365,6 +366,25 @@ export const ptBR: Record<string, string> = {
   "help.statuses.title": "Efeitos de status",
   "help.statuses.intro":
     "Status duram alguns turnos e modificam o que um personagem pode fazer, ou quanto dano causa/recebe.",
+
+  // ── profile page ─────────────────────────────────────────────────────
+  "profile.noPlayer":
+    "Ainda sem perfil. Jogue uma partida e suas estatísticas aparecem aqui.",
+  "profile.unlocked": "{{count}} personagens desbloqueados",
+  "profile.career.title": "Carreira",
+  "profile.career.played": "Partidas",
+  "profile.career.wins": "Vitórias",
+  "profile.career.losses": "Derrotas",
+  "profile.career.draws": "Empates",
+  "profile.career.winRate": "Taxa de vitória: {{rate}}%",
+  "profile.combat.title": "Totais de combate",
+  "profile.combat.dealt": "Dano causado",
+  "profile.combat.taken": "Dano sofrido",
+  "profile.combat.healed": "Cura realizada",
+  "profile.mastery.title": "Domínio de status",
+  "profile.mastery.tagline":
+    "Quantas vezes você aplicou cada status num oponente ao longo da carreira.",
+
   // ── error codes (HTTP) ───────────────────────────────────────────────
   "error.match.bad_team_size": "Cada time precisa ter exatamente 3 personagens.",
   "error.match.unknown_id": "ID de personagem ou arena desconhecido.",
